@@ -16,7 +16,7 @@ email (canonical, users collection)
 
 **Telegram is the signup channel and the notification channel**, so every user has a `telegramId`. Discord is a secondary channel added on top of an existing identity. Nobody can sign up through it.
 
-The `users` collection in Mongo (`src/mastra/lib/users.ts`):
+The `users` collection in Mongo (`src/business/models/user.model.ts`):
 
 | Field        | Type                  | Notes                                            |
 | ------------ | --------------------- | ------------------------------------------------ |
@@ -26,6 +26,7 @@ The `users` collection in Mongo (`src/mastra/lib/users.ts`):
 | `telegramId` | string (optional)     | Sparse unique index: one Telegram account per user. |
 | `discordId`  | string (optional)     | Sparse unique index. Secondary channel, set via `linkDiscordTool`. |
 | `addedAt`    | number (unix)         |                                                  |
+| `preferences.notifications` | boolean | Opt-in to notifications, set via `subscribeTool`. Default `false`. |
 
 **Being in `users` means being authorized**, for both the bots and the app. There are no separate allowlists.
 
