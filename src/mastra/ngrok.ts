@@ -6,7 +6,7 @@ export async function startNgrokTunnel() {
     const domain = appConfig.NGROK_DOMAIN;
     const addr = appConfig.NGROK_FORWARD_ADDR;
     if (!addr) {
-        appLogger.warn('[ngrok] NGROK_FORWARD_ADDR no seteada, túnel no iniciado');
+        appLogger.warn('[ngrok] NGROK_FORWARD_ADDR not set, tunnel not started');
         return;
     }
     const listener = await ngrok.forward({

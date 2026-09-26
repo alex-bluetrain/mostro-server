@@ -31,5 +31,5 @@ async function createAppLogger(): Promise<PinoLogger> {
 export const appLogger = await createAppLogger()
 
 if (!appConfig.AXIOM_TOKEN || !appConfig.AXIOM_DATASET) {
-    appLogger.warn('[axiom] AXIOM_TOKEN/AXIOM_DATASET no seteadas, logs solo a stdout')
+    appLogger.warn('[axiom] AXIOM_TOKEN/AXIOM_DATASET not set, logging to stdout only')
 }

@@ -25,7 +25,7 @@ export async function ensureClassifierSeed(): Promise<void> {
 
     for (const domain of Object.keys(templates) as ClassifierDomain[]) {
         if (await classifierRepository.hasActivePointer(domain)) {
-            appLogger.info(`[classifier-seed] "${domain}" ya tiene puntero activo, no se toca`)
+            appLogger.info(`[classifier-seed] "${domain}" already has an active pointer, leaving it alone`)
             continue
         }
 

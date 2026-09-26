@@ -17,7 +17,7 @@ export const pollMedsMailbox = createStep({
     inputSchema: z.object({ dryRun: z.boolean().default(false) }),
     outputSchema: z.object({ ok: z.literal(true) }),
     execute: async ({ mastra, inputData: { dryRun } }) => {
-        if (!mastra) throw new Error('[poll-meds-mailbox] no hay instancia de mastra disponible')
+        if (!mastra) throw new Error('[poll-meds-mailbox] no mastra instance available')
         const logger = mastra.getLogger()
 
         if (!manager.initialized) await manager.init(mastra)
@@ -58,10 +58,10 @@ export const pollMedsMailbox = createStep({
                 await manager.applyLabel(mail.id, result.ok ? OUTCOME_COMPLETED : OUTCOME_FAILED)
             } catch (error) {
                 // One broken mail doesn't stop the loop: it's marked failed (best-effort) and we move on.
-                logger.error(`[poll-meds-mailbox] no pude procesar ${mail.id}`, { error })
+                logger.error(`[poll-meds-mailbox] could not process ${mail.id}`, { error })
                 if (dryRun) continue
                 await manager.applyLabel(mail.id, OUTCOME_FAILED).catch(labelError =>
-                    logger.error(`[poll-meds-mailbox] no pude etiquetar ${mail.id} como "${OUTCOME_FAILED}"`, { labelError }))
+                    logger.error(`[poll-meds-mailbox] could not label ${mail.id} as "${OUTCOME_FAILED}"`, { labelError }))
             }
         }
 

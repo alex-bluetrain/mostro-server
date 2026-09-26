@@ -21,13 +21,13 @@ export async function classifyMail(mastra: Mastra, text: string, rules: Classifi
     if (label === defaultLabel) return { label, isDefault: true }
 
     const outcome = rules.outcomes.find(o => o.label === label)
-    if (!outcome) throw new Error(`clasificación devolvió un label desconocido: ${label}`)
+    if (!outcome) throw new Error(`classification returned an unknown label: ${label}`)
 
     if (!outcome.extract) return { label, isDefault: false }
 
     const data = await extract(mastra, text, outcome)
     if (!ajv.validate(outcome.extract, data)) {
-        throw new Error(`la extracción de "${label}" no valida contra su schema: ${ajv.errorsText(ajv.errors)}`)
+        throw new Error(`extraction for "${label}" does not validate against its schema: ${ajv.errorsText(ajv.errors)}`)
     }
     return { label, data, isDefault: false }
 }

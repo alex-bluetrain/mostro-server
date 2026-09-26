@@ -52,7 +52,7 @@ export class InboxManager {
     }
 
     async fetch(): Promise<FetchedMail[]> {
-        if (!this.initialized) throw new Error('InboxManager: llamá a init() antes de fetch()')
+        if (!this.initialized) throw new Error('InboxManager: call init() before fetch()')
 
         const { data } = await this.gmail.users.messages.list({ userId: 'me', q: this.query })
         // Gmail's messages.list returns newest to oldest and has no ascending-order parameter,
@@ -88,7 +88,7 @@ export class InboxManager {
             userId: 'me',
             requestBody: { name: label, labelListVisibility: 'labelShow', messageListVisibility: 'show' },
         })
-        if (!created.data.id) throw new Error(`Gmail no devolvió id para el label "${label}"`)
+        if (!created.data.id) throw new Error(`Gmail returned no id for label "${label}"`)
         return created.data.id
     }
 }

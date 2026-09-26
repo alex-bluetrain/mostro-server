@@ -16,7 +16,7 @@ export class ClassifierRepository {
 
     const snapshot = await ClassifierSnapshot.findOne({ domain, version: pointer.version }).lean();
     if (!snapshot) {
-      throw new Error(`[classifier] el puntero de "${domain}" apunta a la versión ${pointer.version} pero no existe ese snapshot`);
+      throw new Error(`[classifier] the "${domain}" pointer points at version ${pointer.version} but that snapshot does not exist`);
     }
 
     return snapshot.classification_rules;

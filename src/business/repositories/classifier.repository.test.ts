@@ -38,7 +38,7 @@ describe('ClassifierRepository', () => {
       vi.mocked(Classifier.findOne).mockReturnValue({ lean: () => Promise.resolve({ domain: 'refunds', version: 9 }) } as any);
       vi.mocked(ClassifierSnapshot.findOne).mockReturnValue({ lean: () => Promise.resolve(null) } as any);
 
-      await expect(classifierRepository.findActiveRules('refunds')).rejects.toThrow(/versión 9.*no existe/);
+      await expect(classifierRepository.findActiveRules('refunds')).rejects.toThrow(/version 9.*does not exist/);
     });
   });
 
