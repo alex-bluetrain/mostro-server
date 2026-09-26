@@ -24,7 +24,7 @@ internal agent classifies supplier emails.
 
 - **Orders by email**: workflows send requests to suppliers from Mostro's own Gmail account.
 - **Replies resume work**: scheduled polls read the inbox, classify each reply with an LLM, and resume the waiting workflow.
-- **Invite-only**: every channel shares one user identity, keyed by Google email.
+- **Invite-only**: users join by invite; every channel shares one identity, keyed by Google email.
 - **Rich chat**: streams generative UI (AG-UI / OpenUI) to the app.
 
 ## Quick start
@@ -33,8 +33,10 @@ Requires Node.js ≥ 22.13, pnpm and MongoDB.
 
 ```bash
 pnpm install
-cp .env.example .env   # fill in the required values
+cp .env.example .env   # fill in the required values, including ADMIN_EMAIL (the first user)
 pnpm gmail:auth        # one-time: authorize Mostro's Gmail account
+pnpm seed:classifier -- --domain diapers --file <rules.json> --author "you" --changelog "initial seed"
+                       # once per domain (diapers, meds, refunds); without rules the inbox polls skip
 pnpm dev               # API + Mastra Studio on http://localhost:4111
 ```
 
@@ -47,6 +49,7 @@ pnpm dev               # API + Mastra Studio on http://localhost:4111
 - [Setup & operations guide](docs/GUIDE.md)
 - [Identity & invites](docs/identity.md)
 - [Inbox pipeline](docs/inbox-pipeline.md)
+- [Naming conventions](docs/NAMING-CONVENTIONS.md)
 - [CI/CD](CI-CD.md)
 
 ## License
