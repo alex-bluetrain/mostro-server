@@ -1,4 +1,6 @@
-# clasificador
+# Classifier rules format
+
+Example rules snapshot for the diapers domain. Conditions and examples stay in Spanish on purpose: they're prompt text matched against the provider's Spanish emails. See [inbox-pipeline.md](inbox-pipeline.md) for how they're used.
 
 ```json
 {

@@ -1,172 +1,175 @@
 # CI/CD
 
-Documentación de los pipelines de GitHub Actions de este repositorio: qué hace cada workflow, por qué está diseñado así, y qué tener en cuenta al tocarlos.
+How this repo's GitHub Actions pipelines work: what each workflow does, why it is designed that way, and what to watch out for when touching them.
 
-Archivos involucrados:
+Files involved:
 
-| Archivo | Rol |
+| File | Role |
 |---|---|
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Checks de calidad (typecheck, tests, build de Docker sin push) |
-| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Versionado con release-please + publicación de imagen a GHCR |
-| [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | Deploy manual a la VM de GCP |
-| [`release-please-config.json`](release-please-config.json) / [`.release-please-manifest.json`](.release-please-manifest.json) | Configuración y estado de release-please |
-| [`Dockerfile`](Dockerfile) | Imagen que se publica y deploya |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Quality checks (secret scan, typecheck, tests, Docker build without push) |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Versioning with release-please + image publish to GHCR |
+| [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | Manual deploy to the GCP VM |
+| [`release-please-config.json`](release-please-config.json) / [`.release-please-manifest.json`](.release-please-manifest.json) | release-please config and state |
+| [`Dockerfile`](Dockerfile) | The image that gets published and deployed |
 
 ---
 
-## 1. Visión general y arquitectura
+## 1. Overview and architecture
 
-### El flujo completo
+### The full flow
 
 ```
-   PR abierto                push a main                     merge del Release PR
+   PR opened                 push to main                    Release PR merged
        │                          │                                  │
        ▼                          ▼                                  ▼
   ┌─────────┐              ┌─────────────┐                    ┌─────────────────────┐
   │ ci.yml  │              │ release.yml │                    │ release.yml         │
-  │ checks  │              │  release-please ──► abre/        │  release-please     │
-  │ docker  │              └─────────────┘      actualiza     │   └ crea tag vX.Y.Z │
-  └─────────┘                                   Release PR    │  checks (reusa ci)  │
-                                                              │   └ publish ──► GHCR│
+  │ secrets │              │  release-please ──► opens/       │  release-please     │
+  │ checks  │              └─────────────┘      updates       │   └ tags vX.Y.Z     │
+  │ docker  │                                   Release PR    │  checks (reuses ci) │
+  └─────────┘                                                 │   └ publish ──► GHCR│
                                                               └─────────────────────┘
                                                                      │
-                                                     (humano decide) ▼
+                                                    (a human decides) ▼
                                                               ┌─────────────┐
                                                               │ deploy.yml  │
-                                                              │ (manual)    │──► VM GCP
+                                                              │ (manual)    │──► GCP VM
                                                               └─────────────┘
 ```
 
-### Decisiones de diseño
+### Design decisions
 
-**1. Releases con release-please + conventional commits.**
-Los commits a `main` siguen [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, etc.). release-please los acumula en un "Release PR" que mantiene abierto y actualizado. Cuando un humano mergea ese PR, se crea el tag `vX.Y.Z`, el GitHub Release y el CHANGELOG. Recién ahí se publica una imagen Docker. Ventaja: el versionado es automático y auditable, pero la decisión de "cortar release" sigue siendo humana.
+**1. Releases via release-please + Conventional Commits.**
+Commits to `main` follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, etc.). release-please accumulates them in a "Release PR" that it keeps open and up to date. When a human merges that PR, the `vX.Y.Z` tag, GitHub Release and CHANGELOG are created. Only then is a Docker image published. Versioning is automatic and auditable, but the decision to cut a release stays human.
 
-**2. La imagen se publica solo en releases, no en cada push.**
-GHCR solo recibe imágenes correspondientes a tags `vX.Y.Z` (más `latest`). No hay imágenes por commit ni por rama. Esto simplifica el registry y garantiza que todo lo que hay en GHCR es deployable y trazable a un release.
+**2. Images are published only on releases, not on every push.**
+GHCR only receives images for `vX.Y.Z` tags (plus `latest`). No per-commit or per-branch images. This keeps the registry simple and guarantees that everything in GHCR is deployable and traceable to a release.
 
-**3. Deploy 100% manual y por tag inmutable.**
-`deploy.yml` solo corre por `workflow_dispatch` y exige escribir el tag a mano (sin default, a propósito). Deploy y rollback son la misma operación: correr el workflow con otro tag. Nada se deploya automáticamente al mergear.
+**3. Deploys are 100% manual and pinned to an immutable tag.**
+`deploy.yml` only runs via `workflow_dispatch` and requires typing the tag by hand (no default, on purpose). Deploy and rollback are the same operation: run the workflow with a different tag. Nothing deploys automatically on merge.
 
-**4. CI corre en PRs y al releasear — no en cada push a main.**
-`ci.yml` no tiene trigger de `push`: los checks corren en el PR (antes del merge) y `release.yml` los reinvoca vía `workflow_call` solo cuando se crea un release, para gatear el publish. Un push normal a `main` solo corre release-please (segundos). Trade-off asumido: un push directo a `main` sin PR no se testea hasta el próximo release.
+**4. CI runs on PRs and on release — not on every push to main.**
+`ci.yml` has no `push` trigger: checks run on the PR (before merge) and `release.yml` re-invokes them via `workflow_call` only when a release is created, to gate the publish. A normal push to `main` only runs release-please (seconds). Accepted trade-off: a direct push to `main` without a PR isn't tested until the next release.
 
-**5. Sin secretos de aplicación en el pipeline.**
-El deploy solo escribe `IMAGE_TAG` en el `.env` de la VM. Los secretos reales (API keys, connection strings) los resuelve el CLI de Infisical **dentro del contenedor** al arrancar, autenticándose con la identidad de la VM (GCP ID token). El pipeline nunca ve ni transporta secretos de la app.
+**5. No application secrets in the pipeline.**
+The deploy only writes `IMAGE_TAG` to the VM's `.env`. Real secrets (API keys, connection strings) are resolved by the Infisical CLI **inside the container** at startup, authenticating with the VM's identity (GCP ID token). The pipeline never sees or carries app secrets.
 
-**6. Autenticación sin credenciales estáticas.**
-- GitHub → GCP: Workload Identity Federation (`id-token: write`), no hay JSON keys de service account.
-- GitHub → GHCR: el `GITHUB_TOKEN` efímero del propio workflow.
-- Contenedor → Infisical: GCP ID token del metadata server de la VM.
+**6. Authentication without static credentials.**
+- GitHub → GCP: Workload Identity Federation (`id-token: write`), no service-account JSON keys.
+- GitHub → GHCR: the workflow's own ephemeral `GITHUB_TOKEN`.
+- Container → Infisical: GCP ID token from the VM's metadata server.
 
-No hay ninguna credencial de larga vida que rotar.
+There are no long-lived credentials to rotate.
 
 ---
 
-## 2. Los workflows en detalle
+## 2. The workflows in detail
 
 ### 2.1 `ci.yml` — CI
 
-**Cuándo corre:** en cada pull request, y cuando `release.yml` lo invoca (`workflow_call`) al crearse un release. Deliberadamente **no** tiene trigger de `push` propio (ver decisión 4).
+**When it runs:** on every pull request, and when `release.yml` invokes it (`workflow_call`) as a release is created. Deliberately has **no** `push` trigger of its own (see decision 4).
 
-**Concurrencia:** `cancel-in-progress: true` — si pusheás de nuevo al mismo PR, la corrida anterior se cancela. Correcto para CI: la corrida vieja ya no aporta nada.
+**Concurrency:** `cancel-in-progress: true` — pushing again to the same PR cancels the previous run. Right for CI: the old run no longer adds anything.
 
-**Jobs (corren en paralelo):**
+**Jobs (run in parallel):**
 
-#### `checks` — Typecheck + tests unitarios
-1. Levanta MongoDB 7 como service container en `localhost:27017` (los tests lo usan; `tests/setup-env.ts` defaultea `MONGODB_URI` a esa dirección).
-2. `pnpm/action-setup@v4` sin versión explícita: lee la versión de pnpm del campo `packageManager` de `package.json` (única fuente de verdad).
-3. `pnpm install --frozen-lockfile` — falla si el lockfile está desincronizado.
+#### `secrets` — Gitleaks
+Runs gitleaks with [`.gitleaks.toml`](.gitleaks.toml) over the full history: blocks the PR if a secret or real infra/personal data shows up (the repo is public). False positives go into the rule's allowlist; rules are never deleted.
+
+#### `checks` — Typecheck + unit tests
+1. Starts MongoDB 7 as a service container on `localhost:27017` (tests use it; `tests/setup-env.ts` defaults `MONGODB_URI` to that address).
+2. `pnpm/action-setup@v4` without an explicit version: reads the pnpm version from `packageManager` in `package.json` (single source of truth).
+3. `pnpm install --frozen-lockfile` — fails if the lockfile is out of sync.
 4. `pnpm typecheck` (`tsc --noEmit`).
-5. `vitest run` **excluyendo** `*.integration.test.ts`: esos tests usan un LLM real vía `OPENROUTER_API_KEY` y son flaky/costosos, así que no gatean el pipeline. Ojo: al pasar `--exclude` se pisa el exclude default de vitest, por eso `node_modules` se excluye explícitamente.
+5. `vitest run` **excluding** `*.integration.test.ts`: those tests hit a real LLM via `OPENROUTER_API_KEY` and are flaky/costly, so they don't gate the pipeline. Note: passing `--exclude` overrides vitest's default exclude, which is why `node_modules` is excluded explicitly.
 
-#### `docker` — Docker build (sin push)
-Valida que el `Dockerfile` buildea, sin publicar nada. Detecta roturas del build (deps de sistema, `mastra build`, etc.) antes del merge.
+#### `docker` — Docker build (no push)
+Verifies the `Dockerfile` builds, without publishing anything. Catches build breakages (system deps, `mastra build`, etc.) before merge.
 
-Sin cache `type=gha` a propósito: exportar el layer del `pnpm install` (~1.2GB) cuesta más tiempo del que ahorra, y el layer de `mastra build` se invalida en cada commit de todas formas.
+No `type=gha` cache on purpose: exporting the `pnpm install` layer (~1.2GB) costs more time than it saves, and the `mastra build` layer is invalidated on every commit anyway.
 
 ---
 
 ### 2.2 `release.yml` — Release
 
-**Cuándo corre:** en cada push a `main` (incluye el merge del propio Release PR).
+**When it runs:** on every push to `main` (including the merge of the Release PR itself).
 
-**Permisos:** `contents: write` (crear tags/releases), `pull-requests: write` (el Release PR), `packages: write` (pushear a GHCR).
+**Permissions:** `contents: write` (tags/releases), `pull-requests: write` (the Release PR), `packages: write` (push to GHCR).
 
-**Concurrencia:** grupo `release` sin `cancel-in-progress`: un release a mitad de camino no se cancela.
+**Concurrency:** group `release` without `cancel-in-progress`: a half-finished release is never cancelled.
 
-**Jobs (encadenados: `release-please` → `checks` → `publish`):**
+**Jobs (chained: `release-please` → `checks` → `publish`):**
 
 #### `release-please`
-Corre `googleapis/release-please-action@v4` con la config del repo. Dos comportamientos según el push:
-- **Push normal:** abre o actualiza el Release PR acumulando los conventional commits. No publica nada, y los demás jobs se skipean — la corrida dura segundos.
-- **Merge del Release PR:** crea el tag `vX.Y.Z` + GitHub Release + CHANGELOG, y expone `release_created=true` y `tag_name` como outputs.
+Runs `googleapis/release-please-action@v4` with the repo config. Two behaviors depending on the push:
+- **Normal push:** opens or updates the Release PR with the accumulated conventional commits. Publishes nothing and the other jobs are skipped — the run takes seconds.
+- **Release PR merge:** creates the `vX.Y.Z` tag + GitHub Release + CHANGELOG, and exposes `release_created=true` and `tag_name` as outputs.
 
-⚠️ Requiere el switch del repo **"Allow GitHub Actions to create and approve pull requests"** (Settings → Actions → General). Los `permissions` del workflow solos no alcanzan.
+⚠️ Requires the repo setting **"Allow GitHub Actions to create and approve pull requests"** (Settings → Actions → General). The workflow `permissions` alone are not enough.
 
-La config (`release-please-config.json`) es mínima: un solo paquete (`.`), `release-type: node` (versiona `package.json`), tags sin componente (`v1.2.0`, no `mostro-v1.2.0`). El manifest (`.release-please-manifest.json`) guarda la última versión releaseada.
+The config (`release-please-config.json`) is minimal: a single package (`.`), `release-type: node` (versions `package.json`), tags without a component (`v1.2.0`, not `mostro-v1.2.0`). The manifest (`.release-please-manifest.json`) stores the last released version.
 
 #### `checks`
-Reusa `ci.yml` completo vía `uses: ./.github/workflows/ci.yml`. Solo corre si `release_created == 'true'`: valida el estado real de `main` justo antes de publicar. Gatea el publish: nada llega a GHCR con typecheck o tests en rojo.
+Reuses the whole `ci.yml` via `uses: ./.github/workflows/ci.yml`. Only runs if `release_created == 'true'`: validates the actual state of `main` right before publishing. Gates the publish: nothing reaches GHCR with a red typecheck or tests.
 
 #### `publish`
-Solo corre si `release_created == 'true'` **y** `checks` pasó. Buildea la imagen y la pushea a GHCR con dos tags:
-- `vX.Y.Z` — **inmutable**, es a lo que se le hace deploy y rollback.
-- `latest` — existe solo para el `docker compose pull` del startup script de la VM en el primer boot.
+Only runs if `release_created == 'true'` **and** `checks` passed. Builds the image and pushes it to GHCR with two tags:
+- `vX.Y.Z` — **immutable**; this is what gets deployed and rolled back to.
+- `latest` — exists only for the `docker compose pull` in the VM's startup script on first boot.
 
-El login a GHCR usa el `GITHUB_TOKEN` del propio workflow: cero credenciales que administrar.
+The GHCR login uses the workflow's own `GITHUB_TOKEN`: zero credentials to manage.
 
-Al final escribe en el step summary el nombre de la imagen y la instrucción para deployarla.
+At the end it writes the image name and deploy instructions to the step summary.
 
 ---
 
 ### 2.3 `deploy.yml` — Deploy
 
-**Cuándo corre:** solo manual (`workflow_dispatch`) con un input obligatorio `version` (ej: `v1.2.0`). **Sin default a propósito:** el rollback depende de tags inmutables, y un default a `latest` haría que "abrir el form y dar enter" tome un camino no reproducible.
+**When it runs:** manually only (`workflow_dispatch`) with a required `version` input (e.g. `v1.2.0`). **No default on purpose:** rollback depends on immutable tags, and a `latest` default would make "open the form and hit enter" take a non-reproducible path.
 
-**Permisos:** `id-token: write` (WIF hacia GCP), `packages: read` (consultar el manifest en GHCR).
+**Permissions:** `id-token: write` (WIF to GCP), `packages: read` (query the manifest in GHCR).
 
-**Concurrencia:** grupo `deploy-prod`, `cancel-in-progress: false`. Un deploy a la vez, y cancelar uno a mitad de camino dejaría la VM en estado indeterminado — se encolan, no se cancelan.
+**Concurrency:** group `deploy-prod`, `cancel-in-progress: false`. One deploy at a time; cancelling one halfway would leave the VM in an undefined state — they queue, they don't cancel.
 
-**Pasos:**
+**Steps:**
 
-1. **Auth a GCP** vía Workload Identity Federation (`google-github-actions/auth@v2`) — sin keys estáticas.
-2. **Verificar que el tag existe en GHCR** con `docker manifest inspect` (consulta el registry sin bajar la imagen). Filosofía *fail-fast*: si el tag no existe, el workflow falla acá y la VM ni se toca.
-3. **Actualizar la VM** por SSH con túnel IAP (la VM no necesita IP pública ni puerto 22 abierto):
-   - Escribe `IMAGE_TAG=vX.Y.Z` en el `.env` del directorio de deploy (lo único que viaja — ver decisión 5).
+1. **Auth to GCP** via Workload Identity Federation (`google-github-actions/auth@v2`) — no static keys.
+2. **Verify the tag exists in GHCR** with `docker manifest inspect` (queries the registry without pulling the image). *Fail-fast*: if the tag doesn't exist, the workflow fails here and the VM is never touched.
+3. **Update the VM** over SSH through an IAP tunnel (the VM needs no public IP or open port 22):
+   - Writes `IMAGE_TAG=vX.Y.Z` to the `.env` in the deploy directory (the only thing that travels — see decision 5).
    - `docker compose pull && docker compose up -d --remove-orphans`.
-4. **Health gate:** pollea `docker inspect .State.Health.Status` del contenedor `mostro-app-1` cada 15s, hasta 20 intentos (~5 min). Si no llega a `healthy`, el workflow falla en rojo — un deploy roto nunca queda en verde.
+4. **Health gate:** polls `docker inspect .State.Health.Status` of the `mostro-app-1` container every 15s, up to 20 attempts (~5 min). If it never reaches `healthy`, the workflow fails red — a broken deploy never shows green.
 
-**Rollback:** correr este mismo workflow con el tag anterior. No hay mecanismo aparte.
+**Rollback:** run this same workflow with the previous tag. There is no separate mechanism.
 
 ---
 
-## 3. Sugerencias, mejoras y peligros
+## 3. Pitfalls and possible improvements
 
-### Peligros / cosas a tener en cuenta
+### Pitfalls
 
-- **El health-check no revierte.** Si la app no llega a `healthy`, el workflow queda en rojo pero la VM queda corriendo la versión rota (o el contenedor ciclando). El rollback es manual: correr Deploy con el tag anterior. Aceptable para este proyecto, pero hay que saberlo.
-- **Ventana de inconsistencia si falla el publish.** El tag `vX.Y.Z` y el GitHub Release se crean en el job `release-please`, pero la imagen se pushea en `publish`. Si `checks` o `publish` fallan, existe un release **sin imagen**. El chequeo de `deploy.yml` te protege (falla rápido), pero el fix es re-correr el workflow fallido desde la UI de Actions, y eso no es obvio para alguien nuevo.
-- **`checks` gatea el publish, no el tag.** El tag ya existe cuando `checks` corre (es `needs: release-please`). Consecuencia: puede haber tags/releases cuya imagen nunca existió. Mismo remedio que el punto anterior.
-- **Pushes directos a `main` no se testean.** Los checks corren en PRs y al releasear — un commit pusheado directo a `main` no pasa por CI hasta el próximo release. Trabajar por PRs; si querés forzarlo, activá branch protection con required status checks.
-- **Roturas en `main` se detectan tarde.** Dos PRs verdes por separado pueden romperse al combinarse (semantic conflict), y eso recién sale a la luz en el `checks` del release. No es grave — el release falla y lo arreglás — pero el diagnóstico llega días después del merge que lo causó.
-- **Los integration tests no corren nunca en CI.** `*.integration.test.ts` (LLM real) está excluido. Nada en el pipeline los ejecuta, ni siquiera nightly — si se rompen, te enterás en local o en prod.
-- **`latest` es mutable.** Solo lo usa el startup script del primer boot, pero si alguien lo usa para deployar "a mano" en la VM, pierde reproducibilidad. No usar `latest` para nada más.
-- **Single VM, downtime en cada deploy.** `docker compose up -d` recrea el contenedor: hay unos segundos de corte. Sin réplicas ni blue-green. Asumido para un bot familiar; no escalar este esquema a algo con SLA sin repensarlo.
-- **Secrets de infra en GitHub Secrets** (`GCP_WIF_PROVIDER`, `GCP_CI_SERVICE_ACCOUNT`, `GCP_VM_NAME`, `GCP_ZONE`). No son credenciales, pero si cambian (recrear la VM, cambiar de proyecto GCP) los workflows fallan de formas poco obvias. Documentar su origen en el runbook de infra.
+- **The health check doesn't roll back.** If the app never reaches `healthy`, the workflow goes red but the VM keeps running the broken version (or a restarting container). Rollback is manual: run Deploy with the previous tag. Acceptable for this project, but worth knowing.
+- **Inconsistency window if publish fails.** The `vX.Y.Z` tag and GitHub Release are created in the `release-please` job, but the image is pushed in `publish`. If `checks` or `publish` fail, a release exists **without an image**. The check in `deploy.yml` protects you (fails fast), but the fix is re-running the failed workflow from the Actions UI, which isn't obvious to newcomers.
+- **`checks` gates the publish, not the tag.** The tag already exists when `checks` runs (`needs: release-please`). So there can be tags/releases whose image never existed. Same remedy as above.
+- **Direct pushes to `main` aren't tested.** Checks run on PRs and on release — a commit pushed straight to `main` doesn't go through CI until the next release. Work through PRs; to enforce it, enable branch protection with required status checks.
+- **Breakages on `main` are detected late.** Two PRs that are green on their own can break when combined (semantic conflict), and that only surfaces in the release's `checks`. Not serious — the release fails and you fix it — but the diagnosis arrives days after the merge that caused it.
+- **Integration tests never run in CI.** `*.integration.test.ts` (real LLM) is excluded and nothing in the pipeline runs it, not even nightly — if they break, you find out locally or in prod.
+- **`latest` is mutable.** Only the first-boot startup script uses it; deploying `latest` by hand on the VM loses reproducibility. Don't use `latest` for anything else.
+- **Single VM, downtime on every deploy.** `docker compose up -d` recreates the container: a few seconds of outage. No replicas or blue-green. Accepted for a family bot; don't scale this setup to anything with an SLA without rethinking it.
+- **Infra values live in GitHub Secrets** (`GCP_WIF_PROVIDER`, `GCP_CI_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `GCP_VM_NAME`, `GCP_ZONE`, `GCP_DEPLOY_DIR`). They aren't credentials, but if they change (VM recreated, GCP project changed) the workflows fail in non-obvious ways. Document their origin in the infra runbook.
 
-### Mejoras posibles (por orden de valor/esfuerzo)
+### Possible improvements (by value/effort)
 
-1. **Branch protection en `main`** (require PR + required status checks). Cierra el agujero de los pushes directos sin testear, sin agregar corridas de CI.
-2. **Job nightly (schedule) para los integration tests**, con `continue-on-error` o en workflow aparte que no gatee nada. Hoy son código muerto desde la perspectiva del pipeline.
-3. **Environment de GitHub (`production`) en el job de deploy.** Gratis incluso en repos privados personales: historial de deploys en la UI, y opcionalmente *required reviewers* como aprobación extra.
-4. **Notificación post-deploy** (Telegram, dado que el proyecto ya es un bot de Telegram): éxito/fallo del deploy con el tag. Cierra el loop sin abrir GitHub.
-5. **`docker/metadata-action` para los tags de imagen** si en algún momento se quieren tags adicionales (sha, major/minor). Hoy con dos tags fijos no hace falta — KISS.
-6. **Digest pinning de las actions de terceros** (`actions/checkout@<sha>` en vez de `@v4`) si el repo se vuelve más sensible. Hoy el riesgo es bajo y el costo de mantenimiento existe; evaluar con Dependabot/Renovate.
+1. **Branch protection on `main`** (require PR + required status checks). Closes the untested-direct-push hole without adding CI runs.
+2. **Nightly (scheduled) job for the integration tests**, with `continue-on-error` or in a separate workflow that gates nothing. Today they are dead code from the pipeline's point of view.
+3. **A GitHub Environment (`production`) on the deploy job.** Free even on personal private repos: deploy history in the UI, and optionally *required reviewers* as an extra approval.
+4. **Post-deploy notification** (Telegram, since the project is already a Telegram bot): deploy success/failure with the tag. Closes the loop without opening GitHub.
+5. **`docker/metadata-action` for image tags** if extra tags (sha, major/minor) are ever needed. With two fixed tags it's unnecessary today — KISS.
+6. **Digest-pin third-party actions** (`actions/checkout@<sha>` instead of `@v4`) if the repo becomes more sensitive. Risk is low today and the maintenance cost is real; evaluate with Dependabot/Renovate.
 
-### Qué NO cambiar (decisiones deliberadas)
+### What NOT to change (deliberate decisions)
 
-- **No agregar trigger `push` a `ci.yml`** — duplica corridas (ver comentario en el archivo).
-- **No agregar default al input `version` de deploy** — rompe la garantía de reproducibilidad.
-- **No activar `cancel-in-progress` en deploy/release** — cortar a mitad deja estado inconsistente.
-- **No agregar cache `type=gha` al build de Docker** — ya se midió: cuesta más de lo que ahorra.
+- **Don't add a `push` trigger to `ci.yml`** — it duplicates runs (see the comment in the file).
+- **Don't add a default to deploy's `version` input** — it breaks the reproducibility guarantee.
+- **Don't enable `cancel-in-progress` on deploy/release** — cutting halfway leaves inconsistent state.
+- **Don't add a `type=gha` cache to the Docker build** — already measured: it costs more than it saves.

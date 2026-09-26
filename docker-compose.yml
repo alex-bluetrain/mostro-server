@@ -19,16 +19,16 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: mostro-server
-    # Override del CMD de la imagen: en local NO corremos `infisical run`. Los
-    # secretos vienen del .env.docker (env_file), así que arrancamos node directo.
+    # Overrides the image CMD: locally we do NOT run `infisical run`. Secrets
+    # come from .env.docker (env_file), so node starts directly.
     command: ["node", "index.mjs"]
     restart: unless-stopped
     depends_on:
       mongo:
         condition: service_healthy
-    # Los secretos vienen del .env.docker (sin Infisical). Ese archivo ya trae
-    # MONGODB_URI apuntando al servicio `mongo` y NGROK_FORWARD_ADDR al backend
-    # `mostro-server:4111`, con los hostnames de la red de compose.
+    # Secrets come from .env.docker (no Infisical). That file already points
+    # MONGODB_URI at the `mongo` service and NGROK_FORWARD_ADDR at the backend
+    # `mostro-server:4111`, using the compose network hostnames.
     env_file:
       - .env.docker
     ports:
@@ -40,18 +40,16 @@ services:
     build:
       context: ../mostro-app
       dockerfile: Dockerfile
-      # Vars publicas inyectadas en el bundle en build time (quedan quemadas).
-      # Para cambiarlas hay que rebuildear la imagen. Los valores vienen del
-      # .env.docker (gitignoreado) via interpolacion de compose.
+      # The web build does NOT take MOSTRO_SERVER_URL / GOOGLE_CLIENT_ID as build
+      # args: it reads them at runtime from /config.js. Requires
+      # ../mostro-app/public/config.js (gitignored; copy public/config.js.example).
       args:
-        EXPO_PUBLIC_MOSTRO_SERVER_URL: ${EXPO_PUBLIC_MOSTRO_SERVER_URL}
-        EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-        # Dev-only: habilita el login mock con API key en la pantalla de auth.
+        # Dev-only: enables the API-key login on the auth screen.
         EXPO_PUBLIC_DEV_LOGIN: ${EXPO_PUBLIC_DEV_LOGIN:-1}
     container_name: mostro-app-web
-    # Opt-in: solo arranca con `docker compose --profile web up`. Fuera del loop
-    # diario (que corre la app con `npx expo start`), se usa para verificar el
-    # artefacto web empaquetado (nginx sirviendo el export estatico).
+    # Opt-in: only starts with `docker compose --profile web up`. Not part of the
+    # daily loop (which runs the app with `npx expo start`); used to check the
+    # packaged web artifact (nginx serving the static export).
     profiles: ["web"]
     restart: unless-stopped
     ports:

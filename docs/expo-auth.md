@@ -1,46 +1,36 @@
-# Auth de Google directo (contrato para clientes tipo Expo)
+# Direct Google auth (contract for Expo-style clients)
 
-Mostro acepta un **id_token de Google como Bearer**, verificado contra el JWKS de
-Google. Esto habilita clientes que hacen el login de Google por su cuenta (Expo
-Android + web con PKCE vía `expo-auth-session`) **sin necesidad de un BFF**.
+Mostro accepts a **Google id_token as a Bearer token**, verified against Google's JWKS. This lets clients do the Google sign-in themselves (Expo Android with `@react-native-google-signin/google-signin`, web with Google Identity Services) **without a BFF**.
 
-Convive con el camino actual de mostro-web (JWT HS256 firmado por su BFF): ambos
-providers están en el `CompositeAuth`, no se pisan.
+It coexists with `SimpleAuth` (`STUDIO_API_KEY`, used by Studio): both providers live in the `CompositeAuth` and don't conflict.
 
-## Configuración del backend
+## Backend config
 
-Setear una env var:
+Set one env var:
 
 ```
 GOOGLE_CLIENT_ID=<oauth-client-id>.apps.googleusercontent.com
 ```
 
-Sin esto, el provider ni se registra (opt-in, mismo criterio que `STUDIO_API_KEY`).
-En este modo **no** hacen falta `GOOGLE_CLIENT_SECRET` ni `GOOGLE_COOKIE_PASSWORD`:
-son solo para el modo SSO/cookie (fase 2, no habilitada).
+Without it, the provider isn't registered (opt-in, same as `STUDIO_API_KEY`). This mode does **not** need `GOOGLE_CLIENT_SECRET` or `GOOGLE_COOKIE_PASSWORD`; those are only for the SSO/cookie mode, which isn't enabled.
 
-## Contrato del cliente
+## Client contract
 
-1. El cliente hace **Auth Code + PKCE** con Google (`expo-auth-session`) y obtiene
-   un `id_token`. El `aud` del token debe ser el mismo `GOOGLE_CLIENT_ID` que
-   tiene configurado mostro.
-2. En cada request a mostro manda el header:
+1. The client signs in with Google (native Google Sign-In on Android, Google Identity Services on web) and gets an `id_token`. The token's `aud` must match the `GOOGLE_CLIENT_ID` configured on mostro.
+2. It sends this header on every request to mostro:
 
    ```
    Authorization: Bearer <id_token>
    ```
 
-3. Mostro:
-   - verifica el token contra el JWKS de Google (firma RS256, `iss`, `aud`, `exp`);
-   - aplica el **invite gate**: el email tiene que existir en `users` (acceso por
-     invitación, no por dominio — no se usa `GOOGLE_ALLOWED_DOMAINS`);
-   - resuelve el rol (`admin` | `member`) desde Mongo por email, igual que hoy.
+3. Mostro then:
+   - verifies the token against Google's JWKS (RS256 signature, `iss`, `aud`, `exp`);
+   - applies the **invite gate**: the email must exist in `users` (access is invite-only, not domain-based, so `GOOGLE_ALLOWED_DOMAINS` isn't used);
+   - resolves the role (`admin` | `member`) from Mongo by email.
 
-## Storage del token en el cliente
+## Token storage on the client
 
-- **Android**: `id_token` en SecureStore (aislado del JS).
-- **Web**: `id_token` en memoria + silent re-login (`prompt=none`), o migrar a la
-  fase 2 (cookie httpOnly server-side) si el re-login molesta.
+- **Android**: `id_token` in SecureStore (kept out of JS memory).
+- **Web**: `id_token` in memory only (a reload means signing in again).
 
-El boilerplate del cliente vive en el repo de Expo cuando exista; mostro solo
-necesita el `GOOGLE_CLIENT_ID` y el email invitado en `users`.
+Reference implementation: [mostro-app](https://github.com/alex-bluetrain/mostro-app) (`src/lib/auth-context*.tsx`, `src/lib/token-storage*.ts`).

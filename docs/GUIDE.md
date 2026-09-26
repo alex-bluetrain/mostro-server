@@ -1,0 +1,386 @@
+# Mostro server — setup & operations guide
+
+<p align="center">
+  <img src="../img/agents.png" alt="Mostro"/>
+</p>
+
+A family-care assistant for recurring orders — diapers, medications, and refunds — reachable from Telegram, Discord, and the [mostro-app](https://github.com/alex-bluetrain/mostro-app) web/Android client. Built with [Mastra](https://mastra.ai/).
+
+A single **supervisor agent** handles every channel. Only its core tools are pinned; domain tools are discovered on demand via tool search and guided by per-domain skills. Each order runs as a workflow with **suspend/resume semantics** — it pauses until Mostro's own mailbox-polling cycle finds and matches the supplier's reply, then notifies subscribed users.
+
+## Features
+
+- **One supervisor, discoverable tools** — `subscribe` and `setMyName` are pinned; everything else (orders, status, invites, Discord linking, weather) is found via `search_tools`, so context cost doesn't grow with the catalog
+- **Invite-only access** — canonical user identity keyed by Google email; unknown senders are silently ignored, admins invite people via one-time deep links (see [identity.md](identity.md))
+- **Google bearer auth for the app** — clients send Google's `id_token`; the server verifies it against JWKS and authorizes it against the same users collection as the bot
+- **Generative UI** — the app streams AG-UI events from `/agents/mostro-supervisor/openui` and renders OpenUI Lang responses
+- **Suspend/resume workflows** — long-running order flows that halt at a step until a matching reply is found in Mostro's own mailbox
+- **Mailbox polling** — a scheduled workflow per domain reads Mostro's Gmail inbox every 15 minutes, matches replies to the suspended step of the run they belong to, and resumes it — see [Mailbox Polling](#mailbox-polling) below
+- **Outbound email** — orders reach suppliers as real emails sent from Mostro's own Gmail account, so replies land in its inbox; a send that fails leaves the order un-placed and retryable rather than silently marked as sent
+- **Notification subscriptions** — users subscribe to order updates and get a message when events occur
+- **Monthly scoping** — one shared order per domain per month (deterministic run IDs like `diapers-2025-07`)
+- **Ngrok tunneling** — optional tunnel for Telegram's webhook delivery in local development (skipped in production, where the bot is reachable on a public domain — see [Deployment](#deployment))
+
+## Architecture
+
+```
+Telegram / Discord / mostro-app ──► auth + access gate ──► Mostro Supervisor
+                                                            │  pinned: subscribe, setMyName
+                                                            │  search_tools + skills:
+                                                            ├──► diapers tools ──► Diapers Workflow (3 steps, 1 suspend)
+                                                            ├──► meds tools    ──► Meds Workflow    (6 steps, 3 suspends)
+                                                            ├──► refunds tools ──► Refunds Workflow (8 steps, 3 suspends)
+                                                            └──► invites, Discord linking, weather
+                          email (Gmail API) ──► suppliers ──► replies
+                                                               │
+              Diapers/Meds/Refunds Poll Workflows (cron, every 15 min)
+                reads Mostro's own Gmail inbox, resumes the matching run
+```
+
+Only known users get past the access gate; identity, invites, and memory ownership are covered in [identity.md](identity.md).
+
+### Agents
+
+| Agent                 | Description                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Mostro Supervisor** | Single entry point for every channel. Pinned core tools + on-demand domain tools (`ToolSearchProcessor`) and skills       |
+| **Inbox Classifier**  | Used by the poll workflows to classify supplier replies and extract data against the rules stored in MongoDB             |
+
+### Workflows
+
+Each domain workflow follows a request → wait → notify pattern with mailbox-polling-driven resume points:
+
+- **Diapers**: `requested → date_confirmed → notification_sent`
+- **Meds**: `requested → acknowledged → ack_notified → delivery_confirmed → notification_sent`
+- **Refunds**: `requested → acknowledged → ack_notified → confirmed → confirmation_notified → deposit_received → deposit_confirmed → notification_sent`
+
+### Mailbox Polling
+
+There is no inbound webhook for suppliers to call. Instead, one poll workflow per domain
+(`diapers-poll`, `meds-poll`, `refunds-poll`) runs on a 15-minute Mastra `schedule`. Each cycle
+orchestrates three independent modules:
+
+1. **`inbox-manager`** (`src/mastra/lib/inbox-manager/`) — the only module that talks to Gmail.
+   Translates a natural-language query description into Gmail search syntax once, fetches
+   unprocessed replies (anything without an `outcome.*` status label), and applies labels.
+2. **`mail-classifier`** (`src/mastra/lib/mail-classifier/`) — classifies each mail and extracts
+   structured data via LLM, driven by **versioned classification rules stored in MongoDB**, read
+   fresh on every cycle — publish a new rules snapshot and the next cycle picks it up, no redeploy.
+3. **`outcome-processor`** (`src/mastra/lib/outcome-processor/`) — runs the side effect registered
+   in code for the classified label (resuming the matching suspended workflow run).
+
+Every processed mail ends up with two orthogonal labels: what it is (e.g. `diapers.confirmed`,
+from the MongoDB rules) and how processing went (`outcome.completed` / `outcome.failed` /
+`outcome.review`). Mails without a status label are picked up again on the next cycle
+(at-least-once semantics).
+
+Classification rules are seeded from JSON files kept **outside the repo** (they contain sensitive
+data): `pnpm seed:classifier -- --domain <domain> --file <path> --author <name> --changelog <text>`.
+
+See [docs/inbox-pipeline.md](inbox-pipeline.md) for the full architecture — module
+responsibilities, label semantics, MongoDB snapshot versioning, orchestration, and operational
+notes — and [docs/clasificador.md](clasificador.md) for the rules JSON format.
+
+The three poll workflows still run every 15 minutes each, but on offset minutes
+(`diapers-poll` at `2,17,32,47`, `meds-poll` at `7,22,37,52`, `refunds-poll` at `12,27,42,57`) so
+the three domains don't hit the Gmail API at the same instant.
+
+**When upgrading an already-deployed instance**, re-run `pnpm gmail:auth`. An existing refresh
+token minted before polling only carries the `gmail.send` scope; the pollers need `gmail.modify`
+to read replies and apply labels. Without the new scope the poller gets a 403 every 15 minutes.
+
+## Tech Stack
+
+- **[Mastra](https://mastra.ai/)** — AI agent framework (agents, workflows, tools, memory, observability)
+- **[DeepSeek v4 Flash](https://deepseek.com/)** via OpenRouter — LLM provider
+- **[@chat-adapter/telegram](https://www.npmjs.com/package/@chat-adapter/telegram)** / **[@chat-adapter/discord](https://www.npmjs.com/package/@chat-adapter/discord)** — chat channels
+- **[@ag-ui/mastra](https://www.npmjs.com/package/@ag-ui/mastra)** — AG-UI event stream for the app
+- **MongoDB** — workflow state, agent memory, users, invites, and classification rules
+- **DuckDB** — observability and tracing
+- **ngrok** — tunnel for Telegram's webhook delivery
+- **Zod** — schema validation
+- **[Gmail API](https://developers.google.com/gmail/api)** via `@googleapis/gmail` — sends outbound emails
+
+## Prerequisites
+
+- Node.js >= 22.13.0
+- [pnpm](https://pnpm.io/)
+- A [MongoDB](https://www.mongodb.com/) instance
+- An [OpenRouter](https://openrouter.ai/) API key
+- A [Telegram Bot](https://core.telegram.org/bots#how-do-i-create-a-bot) token
+- Optional: an [ngrok](https://ngrok.com/) account with a reserved domain, only if you want Telegram to deliver webhooks to your local server (otherwise the bot long-polls)
+- A Gmail account for Mostro itself — outbound orders are sent from it, and suppliers reply to it
+- A Google Cloud project with the Gmail API enabled, an OAuth client, and the app published to
+  production (see the one-time setup in step 3 below)
+- Optional, for app login: a Google OAuth client for sign-in (`GOOGLE_CLIENT_ID`) — the same project can
+  host it
+
+### One project, two OAuth clients
+
+Sending mail and logging in are separate integrations with separate credentials
+(`GMAIL_MAILER_*` and `GOOGLE_CLIENT_ID`), but they can live in one Google Cloud
+project.
+
+Users logging in are never asked for Gmail access. Consent is granted per authorization request,
+not per project: the login asks for `openid email profile`, while `gmail.send` is requested once,
+by you, when you authorize the mailer with Mostro's own account.
+
+What the two do share, being one project: the 100-new-user cap Google applies to an app that has
+shown the "unverified app" screen — which the mailer will, since its scope is sensitive and the app
+is published but unverified — plus the verification paperwork if you ever need it, and the blast
+radius of a suspension. None of that binds at family scale. Split the mailer into its own project
+if you ever open the login to people outside the household.
+
+## Setup
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/alex-bluetrain/mostro-server.git
+   cd mostro-server
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   pnpm install
+   ```
+
+3. Copy the environment file and fill in your values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```env
+   OPENROUTER_API_KEY=
+   TELEGRAM_BOT_USERNAME=
+   TELEGRAM_BOT_TOKEN=
+   TELEGRAM_WEBHOOK_SECRET_TOKEN=
+   MONGODB_URI=
+   MONGODB_DB_NAME=
+   NGROK_AUTHTOKEN=
+   NGROK_DOMAIN=
+   NGROK_FORWARD_ADDR=
+   ADMIN_EMAIL=
+   ADMIN_NAME=
+   ADMIN_TELEGRAM_ID=
+   ```
+
+   `ADMIN_EMAIL` seeds the first authorized user on boot — without it nobody can talk to the bot or log into the app. See [docs/identity.md](identity.md) for how identity and invites work. Note: most optional variables must be absent, not empty — an empty value fails zod validation and aborts the boot (the `NGROK_*` and `DEV_CORS_ORIGINS` variables are the exception: empty is treated as unset).
+
+   **Telegram in local dev.** By default the bot long-polls, so no tunnel is needed. ngrok is only for testing webhook delivery: the tunnel opens when `NGROK_AUTHTOKEN` **and** `NGROK_FORWARD_ADDR` are set (point it at this server: `localhost:4111` under `pnpm dev`, `mostro-server:4111` under docker compose). The tunnel does not register the webhook: call Telegram's `setWebhook` with `https://<NGROK_DOMAIN>/api/agents/mostro-supervisor/channels/telegram/webhook` and `TELEGRAM_WEBHOOK_SECRET_TOKEN` as `secret_token`. While a webhook is registered the adapter uses it on every boot; call `deleteWebhook` to go back to polling. Never do this with the production bot token.
+
+   App access — Google's OAuth client ID. Clients (mostro-app on Android/web) send Google's
+   `id_token` as a bearer; the server verifies it against JWKS. A valid token is not enough: the
+   email must exist in `users`, so access stays invite-only:
+
+   ```env
+   GOOGLE_CLIENT_ID=
+   ```
+
+   Admin access to Studio (min 32 chars) — enables `SimpleAuth`, which is exempt from Studio's EE
+   license gate, so a local Studio can connect to production. Used in prod (via Infisical). See
+   [docs/studio-prod.md](studio-prod.md):
+
+   ```env
+   STUDIO_API_KEY=
+   ```
+
+   Both are individually optional, but **at least one must be set**: with no auth provider the
+   server would be wide open, so the boot fails instead.
+
+   Optional — bootstrap for the classification rules, one minified JSON per domain. On boot the
+   server publishes them as the initial snapshot **only for domains that have no active pointer
+   yet**; a domain already seeded is never overwritten. Used in prod (via Infisical) so a fresh
+   database can't leave the poll workflows failing every cycle. See
+   [docs/classifier-rules/](classifier-rules/):
+
+   ```env
+   CLASSIFIER_RULES_DIAPERS=
+   CLASSIFIER_RULES_MEDS=
+   CLASSIFIER_RULES_REFUNDS=
+   ```
+
+   Required — Gmail, for sending outbound emails and for the poll workflows that read replies
+   back from the same inbox:
+
+   ```env
+   GMAIL_MAILER_CLIENT_ID=
+   GMAIL_MAILER_CLIENT_SECRET=
+   GMAIL_MAILER_REFRESH_TOKEN=
+   GMAIL_MAILER_SENDER=
+   DIAPERS_EMAIL_TO=
+   MEDS_EMAIL_TO=
+   REFUNDS_EMAIL_TO=
+   ```
+
+   One-time Gmail account setup:
+
+   1. Create a Google Cloud project — the same one can also host the app login's OAuth client.
+   2. Enable the Gmail API.
+   3. Create an OAuth client of type "Web application", **separate from the login one**, with a
+      redirect to `http://127.0.0.1:53682/oauth2callback`. Google matches redirect URIs literally,
+      so scheme, host, port and trailing slash must be exactly that — in particular `127.0.0.1`
+      and not `localhost`, which on Windows resolves to IPv6 first while the script listens on
+      IPv4. ("Web application" rather than "Desktop app" because the client secret lives in a
+      server's `.env` and is treated as confidential.)
+   4. Add the `https://www.googleapis.com/auth/gmail.send` and
+      `https://www.googleapis.com/auth/gmail.modify` scopes. Sending only needs `gmail.send`;
+      `gmail.modify` is what lets the poll workflows read replies and apply the classification and
+      status labels (e.g. `diapers.confirmed`, `outcome.completed`). Gmail doesn't offer a scope
+      narrower than "the whole mailbox" — the poller's containment is in code (a per-domain query
+      description, fixed resume functions per outcome), not in the OAuth grant.
+   5. **Publish the app to production.** In _Testing_ mode the refresh token is invalidated
+      after 7 days and sends (and polling) start failing. Authorizing shows the "unverified app"
+      screen, which you accept manually.
+   6. Run `pnpm gmail:auth` with the Mostro account and save the token in `.env`.
+
+   `gmail:auth` runs as its own process and briefly listens on port 53682 — not Mastra's port,
+   which it would collide with while `pnpm dev` is up. The callback cannot be a Mastra route
+   either: `GMAIL_MAILER_REFRESH_TOKEN` is required for the server to boot, so you would need the
+   token to start the thing that gives you the token. The port number itself is arbitrary; it only
+   has to match the redirect URI registered on the OAuth client.
+
+   The consent screen's user type must be **External** — _Internal_ only exists for Google
+   Workspace organizations, and Mostro's account is a plain `@gmail.com` one. Publishing the app
+   is not the same as getting it verified: you can publish without verification, and authorizing
+   then shows the "Google hasn't verified this app" screen, which you accept manually.
+
+   The refresh token also dies if the Mostro account's **password changes** (Google invalidates
+   tokens carrying Gmail scopes) or if it goes **six months unused**. In all of these cases sends
+   fail with `invalid_grant`, and the mailer's error message says so — the fix is always to re-run
+   `pnpm gmail:auth`.
+
+4. Seed the classification rules (once per domain, and again whenever the rules change):
+
+   ```bash
+   pnpm seed:classifier -- --domain diapers --file <path-to-rules.json> --author "you" --changelog "initial seed"
+   ```
+
+   The rules JSON lives outside the repo (it contains sensitive supplier data). Start from the
+   per-domain templates in [docs/classifier-rules/](classifier-rules/) — labels and extract
+   schemas already match the code — and fill in the `<...>` placeholders. Without a seeded
+   snapshot for a domain, that domain's poll cycle fails fast with a clear error. Format:
+   [docs/clasificador.md](clasificador.md).
+
+   You can skip this step by putting the same JSON, minified, in `CLASSIFIER_RULES_<DOMAIN>`:
+   the server seeds any domain that has no active pointer on boot, and logs a loud error for the
+   ones it can't. The script stays the way to publish *new* versions of rules that are already
+   seeded.
+
+5. Start the development server:
+
+   ```bash
+   pnpm dev
+   ```
+
+   This starts the Mastra dev server with [Mastra Studio](https://mastra.ai/docs/studio/overview) at `http://localhost:4111`.
+
+## Project Structure
+
+```
+src/
+├── business/
+│   ├── models/            Mongoose models (users, invites, classifier snapshots + pointers)
+│   └── repositories/      Data access (classifier.repository: findActiveRules, publishSnapshot)
+└── mastra/
+    ├── agents/            mostroSupervisor + inboxClassifierAgent
+    ├── tools/             request + get-status per domain, subscribe, setMyName, invites, Discord, weather;
+    │                      registry.ts is the search_tools catalog
+    ├── skills/            Per-domain instructions loaded on demand by the supervisor
+    ├── routes/            Custom API routes (AG-UI/OpenUI stream, invites, users/me, classifier rules, workflows overview)
+    ├── workflows/         One directory per workflow (not per domain), suspend/resume workflows
+    │   │                  with steps, schemas, and types
+    │   ├── diapers/       diapers.workflow.ts
+    │   ├── diapers-poll/  diapers-poll.workflow.ts (schedule, every 15 min) +
+    │   │                  diapers-inbox.config.ts (query) + diapers-outcome-handlers.ts (label → handler)
+    │   ├── meds/          meds.workflow.ts
+    │   ├── meds-poll/     meds-poll.workflow.ts + meds-inbox.config.ts + meds-outcome-handlers.ts
+    │   ├── refunds/       refunds.workflow.ts
+    │   ├── refunds-poll/  refunds-poll.workflow.ts + refunds-inbox.config.ts + refunds-outcome-handlers.ts
+    │   └── weather/       weather.workflow.ts
+    ├── lib/
+    │   ├── inbox-manager/     Gmail gateway: translates the query once, fetches replies, applies labels
+    │   ├── mail-classifier/   Classifies + extracts via LLM against MongoDB-stored rules (ajv-validated)
+    │   ├── outcome-processor/ Runs the handler registered in code for a classified label
+    │   ├── *-run.ts           Resume functions per domain, guarded by run + suspended + right step
+    │   └── ...                Users, invites, telegram gate, Google auth, subscriber stores
+    ├── config/            Zod-validated environment configuration
+    └── index.ts           Central registration (agents, workflows, storage)
+```
+
+## Scripts
+
+| Command                       | Description                                                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                    | Start development server with hot reload                                                            |
+| `pnpm build`                  | Build for production                                                                                |
+| `pnpm start`                  | Start production server                                                                             |
+| `pnpm test`                   | Run the test suite (Vitest)                                                                         |
+| `pnpm test:watch`             | Run the tests in watch mode                                                                         |
+| `pnpm typecheck`              | Type-check (`tsc --noEmit`)                                                                         |
+| `pnpm gmail:auth`             | Get the Gmail refresh token (one-time)                                                              |
+| `pnpm seed:classifier`        | Publish a classification-rules snapshot to MongoDB (`-- --domain --file --author --changelog`)      |
+| `pnpm seed:runs`              | Dev only: seed fake past diapers/meds/refunds workflow runs (mailer in dry-run); `-- --domain <d>` for one |
+| `pnpm generate:openui-prompt` | Regenerate `src/mastra/generated/openui-system-prompt.ts` after upgrading the OpenUI library        |
+
+## Deployment
+
+Production runs on a GCP `e2-micro` VM (free tier) as a Docker container behind Caddy, reachable
+over HTTPS on a DuckDNS domain. The infrastructure (VM, Caddy, Infisical) is managed outside
+this repo.
+
+This repo owns **versioning and image publishing**:
+
+1. Merge to `main` using [conventional commits](https://www.conventionalcommits.org/) (`feat:`,
+   `fix:`). Anything else (`chore:`, `docs:`) doesn't produce a release.
+2. `release.yml` keeps a **Release PR** open with the accumulated changelog. Merging it tags
+   `vX.Y.Z` and publishes the image to `ghcr.io/alex-bluetrain/mostro-server` (`:vX.Y.Z` and `:latest`).
+3. Deploying is a deliberate, separate step: run the **Deploy** workflow with `version=vX.Y.Z`.
+   It checks the tag exists in the registry before touching the VM, then waits for the container's
+   health check. Rolling back is the same workflow with an older tag.
+
+Secrets are **not** baked into the image and don't live in this repo: the container authenticates
+to Infisical at startup with the VM's GCE identity and holds the secrets in memory only. That means
+production has no `.env` — the file above is for local development.
+
+### Studio against production
+
+Studio is served by the production server itself at the root of the production domain
+(`https://<PROD_DOMAIN>/`) — log in with any email and the `STUDIO_API_KEY` as the password.
+
+Two things make that work. Studio authenticates with `SimpleAuth` (an API key via
+`STUDIO_API_KEY`), because Studio's login UI with third-party auth providers in production is
+gated behind a Mastra Enterprise Edition license — `SimpleAuth` is exempt. And the
+image is built with `mastra build --studio`, so Studio and the API share one origin: the session
+cookie is `SameSite=Lax`, which browsers refuse to send cross-site. See
+[docs/studio-prod.md](studio-prod.md) for the full story.
+
+`ngrok` is local-only. In production `NGROK_AUTHTOKEN` is absent, so the tunnel is never opened and
+Telegram reaches the bot through the public domain instead.
+
+### Logs
+
+Everything Mastra logs — plus any `logger.*` call from a workflow or tool — goes through a
+`PinoLogger` built in [`src/mastra/lib/app-logger.ts`](../src/mastra/lib/app-logger.ts). By default that
+means stdout: the terminal in development, `docker logs` on the VM.
+
+Setting `AXIOM_TOKEN` **and** `AXIOM_DATASET` adds [Axiom](https://axiom.co/) as a second
+destination. Pino writes to both streams, so shipping logs never removes them from the console, and
+if either variable is missing the boot warns once and keeps the local-only behaviour. The Axiom
+transport batches and retries on its own, so an unreachable or misconfigured Axiom never takes the
+server down.
+
+Use an Axiom API token scoped to ingest on that one dataset, and load it through Infisical like the
+rest of the production secrets.
+
+Note that `console.*` calls (the `[poll-*]`, `[classifier-seed]` and `[telegram-start]` messages)
+bypass Pino entirely, so they only reach `docker logs`, not Axiom.
+
+## Known limitations / TODO
+
+- **Phase 2: SSO / cookie flow not implemented.** The cookie-based SSO flow (`GOOGLE_CLIENT_SECRET`
+  and `GOOGLE_COOKIE_PASSWORD`) is not wired up. Current auth is Bearer id_token only. SSO would enable persistent web
+  sessions and silent re-auth for the Expo web client.
+

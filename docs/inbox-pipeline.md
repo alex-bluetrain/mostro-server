@@ -1,216 +1,156 @@
 # Inbox pipeline: inbox-manager, mail-classifier, outcome-processor
 
-Cada dominio (diapers, meds, refunds) tiene un poll workflow que corre cada 15 minutos y procesa
-las respuestas de los proveedores en la casilla de Mostro. El pipeline se compone de tres módulos
-independientes, orquestados por el step de cada poll workflow — ninguno conoce a los otros dos.
+Each domain (diapers, meds, refunds) has a poll workflow that runs every 15 minutes and handles provider replies in Mostro's mailbox. The pipeline is built from three independent modules, orchestrated by each poll workflow's step. None of them knows about the other two.
 
-## La idea, sin tecnicismos
+## The idea, without the jargon
 
 ```mermaid
 flowchart TD
-    MAIL["El proveedor responde por mail<br/>a la casilla de Mostro"] --> CHECK["Cada 15 minutos, Mostro<br/>revisa la casilla"]
-    CHECK --> READ["Toma solo los mails que<br/>todavía no procesó"]
-    READ --> UNDERSTAND{"Lee cada mail:<br/>¿qué tipo de respuesta es?"}
-    UNDERSTAND -->|"la reconoce<br/>(ej: confirmaron los pañales)"| ACT["Avanza el pedido que estaba<br/>esperando esa respuesta y avisa<br/>por Telegram a los suscriptos"]
-    UNDERSTAND -->|"no la reconoce"| HUMAN["Marca el mail para que<br/>lo revise una persona"]
-    ACT -->|"salió bien"| DONE["Mail marcado como<br/>procesado"]
-    ACT -->|"algo falló"| FAIL["Mail marcado como fallido<br/>(no se pierde: queda a la<br/>vista en Gmail)"]
+    MAIL["The provider replies by email<br/>to Mostro's mailbox"] --> CHECK["Every 15 minutes, Mostro<br/>checks the mailbox"]
+    CHECK --> READ["Picks up only the emails<br/>it hasn't handled yet"]
+    READ --> UNDERSTAND{"Reads each email:<br/>what kind of reply is it?"}
+    UNDERSTAND -->|"recognizes it<br/>(e.g. diapers confirmed)"| ACT["Advances the request that was<br/>waiting for that reply and notifies<br/>subscribers on Telegram"]
+    UNDERSTAND -->|"doesn't recognize it"| HUMAN["Flags the email for<br/>a person to review"]
+    ACT -->|"success"| DONE["Email marked<br/>as processed"]
+    ACT -->|"something failed"| FAIL["Email marked as failed<br/>(not lost: it stays<br/>visible in Gmail)"]
 ```
 
-Cada mail queda etiquetado en el Gmail de Mostro con dos cosas: **qué era** (ej: "confirmación
-de pañales") y **cómo terminó** (procesado, fallido, o a revisar). Un mail sin etiqueta de
-resultado se vuelve a intentar en la próxima pasada — nada se pierde en silencio.
+Every email gets two labels in Mostro's Gmail: **what it was** (e.g. "diapers confirmation") and **how it ended** (processed, failed, or needs review). An email with no outcome label is retried on the next pass, so nothing gets lost silently.
 
-Las "reglas" que le dicen a Mostro qué tipos de respuesta existen y qué datos sacar de cada una
-no están en el código: se cargan aparte y se pueden cambiar sin tocar el programa.
+The "rules" that tell Mostro which kinds of reply exist and what data to pull from each aren't in the code. They're loaded separately and can change without touching the program.
 
-## El pipeline en detalle
+## The pipeline in detail
 
 ```mermaid
 flowchart TD
-    CRON(["cron cada 15 min"]) --> INIT
+    CRON(["cron every 15 min"]) --> INIT
     INIT{"manager.initialized?"}
     DEFAULT{"isDefault?"}
 
     subgraph MONGO["Mongo"]
-        RULES["findActiveRules(domain)<br/>puntero (classifiers) → snapshot activo<br/>(classifier-snapshots)<br/>null si el dominio no tiene reglas"]
+        RULES["findActiveRules(domain)<br/>pointer (classifiers) → active snapshot<br/>(classifier-snapshots)<br/>null if the domain has no rules"]
     end
 
-    subgraph IM["inbox-manager — único módulo que habla con Gmail"]
-        TRANSLATE["init(mastra)<br/>traduce queryDescription → query Gmail<br/>+ exclusiones -label:outcome.*"]
-        FETCH["fetch()<br/>mails sin label de estado, viejo → nuevo<br/>strip-mail-body + resolve-mail-year-month"]
-        LABEL["applyLabel(label de clasificación)<br/>ej: diapers.confirmed"]
-        REVIEW["applyLabel(outcome.review)<br/>intervención manual"]
+    subgraph IM["inbox-manager: the only module that talks to Gmail"]
+        TRANSLATE["init(mastra)<br/>translates queryDescription → Gmail query<br/>+ -label:outcome.* exclusions"]
+        FETCH["fetch()<br/>emails without a status label, oldest → newest<br/>strip-mail-body + resolve-mail-year-month"]
+        LABEL["applyLabel(classification label)<br/>e.g. diapers.confirmed"]
+        REVIEW["applyLabel(outcome.review)<br/>manual intervention"]
         COMPLETED["applyLabel(outcome.completed)"]
         FAILED["applyLabel(outcome.failed)"]
     end
 
-    subgraph MC["mail-classifier — puro, sin side effects"]
-        CLASSIFY["classifyMail(mastra, text, rules)<br/>1. clasificar (condition + few-shot)<br/>2. extraer (JSON Schema del snapshot)<br/>3. validar con ajv"]
+    subgraph MC["mail-classifier: pure, no side effects"]
+        CLASSIFY["classifyMail(mastra, text, rules)<br/>1. classify (condition + few-shot)<br/>2. extract (snapshot JSON Schema)<br/>3. validate with ajv"]
     end
 
     subgraph OP["outcome-processor"]
-        PROCESS["processOutcome(handlers, label, ctx)<br/>label → handler → @lib/*-run.ts<br/>(resume del run suspendido)"]
+        PROCESS["processOutcome(handlers, label, ctx)<br/>label → handler → @lib/*-run.ts<br/>(resumes the suspended run)"]
     end
 
-    INIT -->|"no (1ra corrida)"| TRANSLATE
-    INIT -->|"sí"| RULES
+    INIT -->|"no (first run)"| TRANSLATE
+    INIT -->|"yes"| RULES
     TRANSLATE --> RULES
     RULES --> FETCH
-    FETCH -->|"por cada mail"| CLASSIFY
+    FETCH -->|"for each email"| CLASSIFY
     CLASSIFY --> LABEL
     LABEL --> DEFAULT
-    DEFAULT -->|"sí (default-outcome)"| REVIEW
+    DEFAULT -->|"yes (default-outcome)"| REVIEW
     DEFAULT -->|"no"| PROCESS
-    PROCESS -->|"ok / sin handler"| COMPLETED
-    PROCESS -->|"falla"| FAILED
-    CLASSIFY -.->|"error (extracción no valida, etc.)"| FAILED
+    PROCESS -->|"ok / no handler"| COMPLETED
+    PROCESS -->|"fails"| FAILED
+    CLASSIFY -.->|"error (extraction invalid, etc.)"| FAILED
 ```
 
-Los rombos (`initialized?`, `isDefault?`) son decisiones del step orquestador
-(`poll-<domain>-mailbox.step`); los módulos no se conocen entre sí.
+The diamonds (`initialized?`, `isDefault?`) are decisions made by the orchestrating step (`poll-<domain>-mailbox.step`); the modules don't know about each other.
 
 ## inbox-manager (`src/mastra/lib/inbox-manager/`)
 
-Gateway a Gmail: lee mails y aplica labels. No clasifica ni ejecuta side effects.
+The gateway to Gmail: it reads emails and applies labels. It doesn't classify or run side effects.
 
-- **Config en código** por dominio (`workflows/<domain>-poll/<domain>-inbox.config.ts`): solo un
-  `queryDescription` en lenguaje natural ("mails del proveedor de pañales de los últimos 30 días").
-- **Patrón `const` + `init(mastra)` idempotente**: la instancia se declara a nivel de módulo
-  (donde `mastra` todavía no existe); `init(mastra)` traduce la query natural → sintaxis de Gmail
-  con una llamada al agente `inboxClassifier` **una sola vez**, y los ciclos de cron siguientes la
-  reusan.
-- **Exclusiones estáticas**: a la query traducida se le concatena
-  `-label:outcome.completed -label:outcome.failed -label:outcome.review`. Mail sin label de
-  estado = no procesado. Las exclusiones no dependen de las reglas de clasificación, así que no
-  hay que derivarlas de Mongo.
-- `fetch()`: lista mensajes (Gmail devuelve de más nuevo a más viejo; se invierte para procesar
-  de más viejo a más nuevo), limpia el cuerpo (`strip-mail-body`: cheerio para HTML,
-  `email-reply-parser` para citas) y resuelve la fecha determinística desde el header
-  `X-Received` más viejo (`resolve-mail-date`), de donde salen el `year` y el `month` del mail.
-- `applyLabel(messageId, label)`: crea el label en Gmail si no existe.
+- **Config lives in code** per domain (`workflows/<domain>-poll/<domain>-inbox.config.ts`), and it's just a natural-language `queryDescription` ("emails from the diaper provider in the last 30 days").
+- **`const` + idempotent `init(mastra)` pattern**: the instance is declared at module level, where `mastra` doesn't exist yet. `init(mastra)` translates the natural-language query into Gmail syntax with a **single** call to the `inboxClassifier` agent, and later cron cycles reuse it.
+- **Static exclusions**: `-label:outcome.completed -label:outcome.failed -label:outcome.review` is appended to the translated query. No status label means not processed. The exclusions don't depend on the classification rules, so they don't have to be derived from Mongo.
+- `fetch()`: lists messages (Gmail returns newest first, so the list is reversed to process oldest first), cleans the body (`strip-mail-body`: cheerio for HTML, `email-reply-parser` for quotes), and resolves a deterministic date from the oldest `X-Received` header (`resolve-mail-date`). The email's `year` and `month` come from that date.
+- `applyLabel(messageId, label)`: creates the Gmail label if it doesn't exist.
 
 ## mail-classifier (`src/mastra/lib/mail-classifier/`)
 
-Funciones puras sobre texto + reglas: sin Gmail, sin side effects, sin cache.
+Pure functions over text + rules: no Gmail, no side effects, no cache.
 
-- **Las reglas viven en Mongo** (no en código) y se leen en **cada corrida** vía
-  `classifierRepository.findActiveRules(domain)`. Publicar un snapshot nuevo impacta en el
-  siguiente ciclo de cron sin redeploy.
-- Si el dominio **todavía no tiene reglas**, `findActiveRules` devuelve `null` y el poll
-  saltea la corrida con un warning, sin tocar la casilla. Es el estado esperado cuando falta
-  cargar el `CLASSIFIER_RULES_<DOMAIN>` correspondiente. En cambio, un puntero que apunta a
-  un snapshot inexistente **sí lanza**: eso es corrupción, no falta de configuración.
+- **Rules live in Mongo** (not in code) and are read on **every run** via `classifierRepository.findActiveRules(domain)`. Publishing a new snapshot takes effect on the next cron cycle, with no redeploy.
+- If the domain **has no rules yet**, `findActiveRules` returns `null` and the poll skips the run with a warning, leaving the mailbox alone. That's the expected state while the matching `CLASSIFIER_RULES_<DOMAIN>` hasn't been loaded. A pointer to a snapshot that doesn't exist **does throw**, though: that's corruption, not missing config.
 - `classifyMail(mastra, text, rules)` → `{ label, data?, isDefault }`:
-  1. **Clasificación**: prompt con el `condition` de cada outcome + few-shot de
-     `examples.match[]` / `examples.no_match[]`; el LLM elige exactamente un label
-     (enum = labels de outcomes + label del default-outcome).
-  2. **Extracción** (solo si el outcome elegido tiene `extract`): segunda llamada con
-     `structuredOutput` pasando el **JSON Schema puro** del snapshot directo al LLM.
-  3. **Validación**: `ajv` valida la data extraída contra ese mismo schema. Si no valida, se
-     lanza error y el step marca el mail `outcome.failed` — la red de seguridad antes de tocar
-     un workflow.
-- El formato del JSON de reglas está documentado en [clasificador.md](clasificador.md).
+  1. **Classification**: a prompt with each outcome's `condition` plus few-shot from `examples.match[]` / `examples.no_match[]`. The LLM picks exactly one label (enum = outcome labels + the default-outcome label).
+  2. **Extraction** (only if the chosen outcome has `extract`): a second call with `structuredOutput`, passing the snapshot's **plain JSON Schema** straight to the LLM.
+  3. **Validation**: `ajv` checks the extracted data against that same schema. If it fails, an error is thrown and the step marks the email `outcome.failed`. This is the safety net before any workflow gets touched.
+- The rules JSON format is documented in [clasificador.md](clasificador.md).
 
 ## outcome-processor (`src/mastra/lib/outcome-processor/`)
 
-Ejecuta el side effect asociado a un label de clasificación.
+Runs the side effect tied to a classification label.
 
-- **Registro en código por dominio** (`workflows/<domain>-poll/<domain>-outcome-handlers.ts`):
-  mapa `label → handler`. Los handlers parsean `data` con los Zod resume schemas del dominio y
-  llaman a los helpers `@lib/*-run.ts` (resume guardado por run + suspended + step correcto).
-- **Resolución del run**: los handlers con fecha extraída del mail (`deliveryDate` /
-  `depositDate`, formato `YYYY-MM-DD` garantizado por schema) arman el mes del run combinando el
-  **año del contexto** (header `X-Received`, confiable) con el **mes de la fecha extraída**
-  (`monthOfIsoDate`). Los mails de respuesta solo indican día/mes ("16-01"): el año de la fecha lo
-  adivina el LLM y no es confiable, pero el mes sí apunta al run del pedido que confirma aunque la
-  respuesta llegue en otro mes. Los handlers sin fecha extraída (`meds.acknowledged`,
-  `refunds.acknowledged`, `refunds.approved`) usan el `year` / `month` del contexto tal cual.
-- `processOutcome(handlers, label, ctx)` → `{ ok } | { ok: false, reason }`. Un label **sin
-  handler registrado** se considera completado sin side effects.
-- ⚠️ Los labels del mapa **deben coincidir** con los del JSON seedeado en Mongo: un label
-  clasificado que no figura en el registro queda `outcome.completed` sin ejecutar nada.
+- **Registry lives in code** per domain (`workflows/<domain>-poll/<domain>-outcome-handlers.ts`) as a `label → handler` map. Handlers parse `data` with the domain's Zod resume schemas and call the `@lib/*-run.ts` helpers (which resume the saved run, check it's suspended, and target the right step).
+- **Run resolution**: handlers with a date extracted from the email (`deliveryDate` / `depositDate`, `YYYY-MM-DD` guaranteed by the schema) build the run's month by combining the **context year** (from the `X-Received` header, reliable) with the **extracted date's month** (`monthOfIsoDate`). Reply emails only give day/month ("16-01"), so the LLM guesses the year and it can't be trusted. The month, though, points at the run of the request being confirmed, even if the reply arrives in a different month. Handlers without an extracted date (`meds.acknowledged`, `refunds.acknowledged`, `refunds.approved`) use the context `year` / `month` as-is.
+- `processOutcome(handlers, label, ctx)` → `{ ok } | { ok: false, reason }`. A label **with no registered handler** counts as completed with no side effects.
+- ⚠️ The map's labels **must match** the ones in the JSON seeded into Mongo. A classified label missing from the registry ends up `outcome.completed` and runs nothing.
 
-## Labels: dos dimensiones ortogonales
+## Labels: two orthogonal dimensions
 
-Cada mail procesado recibe dos labels con notación de punto:
+Each processed email gets two dot-notation labels:
 
-| Dimensión | Ejemplos | Cuándo se aplica |
+| Dimension | Examples | When it's applied |
 | --- | --- | --- |
-| **Clasificación** | `diapers.confirmed`, `meds.unknown` | Apenas el LLM clasifica (viene del snapshot de Mongo) |
-| **Estado** | `outcome.completed` / `outcome.failed` / `outcome.review` | Según el resultado del procesamiento |
+| **Classification** | `diapers.confirmed`, `meds.unknown` | As soon as the LLM classifies (comes from the Mongo snapshot) |
+| **Status** | `outcome.completed` / `outcome.failed` / `outcome.review` | Based on the processing result |
 
-- `outcome.completed`: handler OK (o label sin handler).
-- `outcome.failed`: handler falló, extracción no validó, o error inesperado (best-effort).
-- `outcome.review`: matcheó el default-outcome — intervención manual, nadie lo reintenta.
+- `outcome.completed`: the handler succeeded (or the label has no handler).
+- `outcome.failed`: the handler failed, extraction didn't validate, or an unexpected error occurred (best-effort).
+- `outcome.review`: matched the default-outcome. Needs manual intervention; nothing retries it.
 
-Un mail puede quedar `diapers.confirmed` + `outcome.failed`: se sabe **qué era** y **que falló**.
-Como la query excluye los tres labels de estado, la semántica de reintento es at-least-once: un
-crash antes de etiquetar el estado hace que el mail se reprocese en el ciclo siguiente.
+An email can end up `diapers.confirmed` + `outcome.failed`: you know **what it was** and **that it failed**. Since the query excludes all three status labels, retries are at-least-once: a crash before the status label is applied means the email gets reprocessed on the next cycle.
 
-## Reglas en Mongo: snapshots versionados
+## Rules in Mongo: versioned snapshots
 
-Dos colecciones (modelos en `src/business/models/`, repo en
-`src/business/repositories/classifier.repository.ts`):
+Two collections (models in `src/business/models/`, repository in `src/business/repositories/classifier.repository.ts`):
 
-- **`classifier-snapshots`** (inmutable): `{ domain, version, author, changelog,
-  classification_rules }`, índice único `(domain, version)`. Publicar cambios siempre crea una
-  versión nueva (`version = max + 1`).
-- **`classifiers`** (puntero mutable): `{ domain, version }`, índice único por `domain`. Apunta
-  al snapshot activo. Rollback = mover el puntero a una versión anterior.
+- **`classifier-snapshots`** (immutable): `{ domain, version, author, changelog, classification_rules }`, unique index on `(domain, version)`. Publishing a change always creates a new version (`version = max + 1`).
+- **`classifiers`** (mutable pointer): `{ domain, version }`, unique index on `domain`. Points to the active snapshot. Rolling back means moving the pointer to an earlier version.
 
 ### Seed
 
-Los JSON de reglas contienen datos sensibles y viven **fuera del repo**. Hay templates con
-placeholders por dominio en [classifier-rules/](classifier-rules/) (labels y schemas de extract
-ya alineados con los handlers). El script recibe el path:
+Rules JSON files contain sensitive data and live **outside the repo**. There are per-domain templates with placeholders in [classifier-rules/](classifier-rules/), with labels and extract schemas already aligned with the handlers. The script takes the path:
 
 ```bash
-pnpm seed:classifier -- --domain diapers --file /ruta/externa/diapers-rules.json --author "Alex" --changelog "seed inicial"
+pnpm seed:classifier -- --domain diapers --file /external/path/diapers-rules.json --author "Alex" --changelog "initial seed"
 ```
 
-Valida el shape mínimo (outcomes no vacío, default-outcome presente), inserta el snapshot con
-versión autoincremental y mueve el puntero.
+It validates the minimal shape (non-empty outcomes, default-outcome present), inserts the snapshot with an auto-incremented version, and moves the pointer.
 
-## Orquestación (poll step)
+## Orchestration (poll step)
 
-`workflows/<domain>-poll/steps/poll-<domain>-mailbox.step.ts`, uno por dominio (sin factory
-genérico, KISS):
+`workflows/<domain>-poll/steps/poll-<domain>-mailbox.step.ts`, one per domain (no generic factory, KISS):
 
 ```
-si !manager.initialized → manager.init(mastra)          // traduce query una vez
-rules = classifierRepository.findActiveRules(domain)    // Mongo, cada corrida
-si !rules → warning; salir ok                           // dominio sin reglas: no toca la casilla
-mails = manager.fetch()                                 // viejo → nuevo
-por cada mail:
+if !manager.initialized → manager.init(mastra)          // translates the query once
+rules = classifierRepository.findActiveRules(domain)    // Mongo, every run
+if !rules → warning; exit ok                            // domain without rules: mailbox untouched
+mails = manager.fetch()                                 // oldest → newest
+for each mail:
     { label, data, isDefault } = classifyMail(...)
-    applyLabel(mail, label)                             // clasificación, inmediato
-    si isDefault → applyLabel(mail, outcome.review); continuar
+    applyLabel(mail, label)                             // classification, immediately
+    if isDefault → applyLabel(mail, outcome.review); continue
     result = processOutcome(handlers, label, { mastra, text, month, data })
     applyLabel(mail, result.ok ? outcome.completed : outcome.failed)
-en catch (por mail): log + applyLabel(outcome.failed) best-effort — un mail roto no corta el loop
+on catch (per mail): log + applyLabel(outcome.failed) best-effort; one broken email doesn't stop the loop
 ```
 
-**Por qué clasificación y avance de workflow están separados**: el modelo solo responde "qué es
-este mail" y "con qué datos" — nunca decide qué run o step tocar. Eso queda en código
-(`resolveMailYearMonth` + los resume helpers `*-run.ts`), así que una mala clasificación puede, a
-lo sumo, mal etiquetar un mail; no puede corromper el estado de un run.
+**Why classification and workflow advancement are separate**: the model only answers "what is this email" and "with what data". It never decides which run or step to touch. That stays in code (`resolveMailYearMonth` + the `*-run.ts` resume helpers), so a bad classification can at worst mislabel an email. It can't corrupt a run's state.
 
-## Notas operativas
+## Operational notes
 
-- El scope `gmail.modify` es necesario para leer respuestas y aplicar labels (ver README, setup
-  de Gmail).
-- **Mails viejos con el esquema de labels anterior** (`mostro/...`) no tienen labels `outcome.*`,
-  así que la query nueva los volvería a traer. La query natural limita a "últimos 30 días"; si
-  molesta, aplicarles un label `outcome.*` manualmente en Gmail una vez.
-- No hay retry automático de mails fallidos ni aviso por Telegram cuando algo cae en
-  `outcome.failed` / `outcome.review` — pendientes en `docs/superpowers/followups.md`.
-- **Limitación conocida**: para los handlers sin fecha extraída, la resolución por `X-Received`
-  asume que el run del mes de envío del mail sigue suspendido cuando llega la respuesta. Los
-  handlers con fecha extraída derivan el mes de la fecha del mail pero toman el año del
-  contexto, así que asumen que pedido y entrega/depósito caen en el mismo año (una confirmación
-  de enero que llega en diciembre del año anterior o viceversa se mapearía mal). El fix
-  definitivo para cruces de threads es atar cada thread de mail al run que lo originó (guardar
-  el `threadId` del mail saliente en el estado del workflow) — no implementado.
-- El CLI de dry-run (`classify:eml`) se eliminó con esta arquitectura; se rehará contra los
-  módulos nuevos en otra tanda.
+- The `gmail.modify` scope is needed to read replies and apply labels (see [GUIDE.md](GUIDE.md), Gmail setup).
+- **Old emails with the previous label scheme** (`mostro/...`) have no `outcome.*` labels, so the new query would pick them up again. The natural-language query is limited to "last 30 days"; if they get in the way, apply an `outcome.*` label to them manually in Gmail once.
+- Failed emails aren't retried automatically, and there's no Telegram alert when something lands in `outcome.failed` / `outcome.review`.
+- **Known limitation**: for handlers without an extracted date, resolving by `X-Received` assumes the run for the month the email was sent is still suspended when the reply arrives. Handlers with an extracted date take the month from the email's date but the year from the context, so they assume the request and the delivery/deposit fall in the same year (a January confirmation arriving the previous December, or the reverse, would map wrong). The real fix for threads crossing months is to tie each email thread to the run that started it (store the outgoing email's `threadId` in the workflow state). Not implemented.
+- The dry-run CLI (`classify:eml`) was removed with this architecture; it'll be rebuilt against the new modules later.
