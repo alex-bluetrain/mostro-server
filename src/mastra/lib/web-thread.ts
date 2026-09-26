@@ -6,7 +6,7 @@ import { channelThreadId } from './channel-thread-id'
 // accept the bare handler.
 type MiddlewareHandler = Extract<Middleware, { handler: unknown }>['handler']
 
-// Channel marker for the supervisor's dynamic prompt. We set it here, at the
+// Channel marker for the agent's dynamic prompt. We set it here, at the
 // only door the browser comes through: if there's ever another channel, it doesn't
 // inherit OpenUI by accident —it has to ask for it explicitly.
 export const CHANNEL_KEY = 'mostro.channel'

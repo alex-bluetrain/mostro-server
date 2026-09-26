@@ -230,13 +230,13 @@ function buildMastra(): Mastra {
         }),
     })
 
-    // The notify steps do `mastra?.getAgent('mostroSupervisor')` with an
-    // `if (supervisor)` guard, but getAgent THROWS if the agent isn't registered.
-    // Returning undefined reproduces the no-supervisor path: the step skips the
+    // The notify steps do `mastra?.getAgent('mostroAgent')` with an
+    // `if (agent)` guard, but getAgent THROWS if the agent isn't registered.
+    // Returning undefined reproduces the no-agent path: the step skips the
     // Telegram send and advances the state with sent = 0.
     const originalGetAgent = mastra.getAgent.bind(mastra)
     mastra.getAgent = ((name: string) =>
-        name === 'mostroSupervisor' ? undefined : originalGetAgent(name as never)) as typeof mastra.getAgent
+        name === 'mostroAgent' ? undefined : originalGetAgent(name as never)) as typeof mastra.getAgent
 
     return mastra
 }
@@ -381,7 +381,7 @@ const seedByDomain: Record<Domain, (mastra: Mastra) => Promise<void>> = {
 async function main(): Promise<void> {
     const { domains } = parseCliArgs()
 
-    // The notify steps query subscribers via mongoose before the supervisor
+    // The notify steps query subscribers via mongoose before the agent
     // guard, so the connection is needed even if nothing is sent.
     await mongoose.connect(appConfig.MONGODB_URI, { dbName: appConfig.MONGODB_DB_NAME })
 

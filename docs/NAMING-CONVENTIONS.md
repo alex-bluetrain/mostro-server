@@ -17,7 +17,7 @@ Searching `wait-meds` should surface every artifact of that step. Prefer `wait-m
 
 ```text
 src/mastra/
-├── agents/       mostro-supervisor.ts, inbox-classifier-agent.ts
+├── agents/       mostro-agent.ts, inbox-classifier-agent.ts
 ├── tools/        <domain>-<action>-tool.ts
 ├── scorers/      <domain>-scorer.ts
 ├── config/       <purpose>.config.ts
@@ -62,7 +62,7 @@ In tools the order flips: the file leads with the domain (`meds-request-tool`), 
 
 ## Other rules
 
-- The supervisor is the naming exception: `mostroSupervisor`, no `Agent` suffix.
+- The Mostro agent's id is the exception: `mostro-supervisor`, a legacy name kept because it is part of public routes (`/agents/mostro-supervisor/openui`, the Telegram webhook).
 - Types are inferred with `z.infer<typeof xSchema>`, with no `Type` suffix on the export.
 - A poll workflow doesn't duplicate its main workflow's resume schemas or utils; it imports them from `../<domain>/schemas/...` and `../<domain>/utils/...`.
 - Poll steps live in their own file under `steps/`, never inline in `<domain>-poll.workflow.ts`.

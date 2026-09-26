@@ -51,7 +51,7 @@ The gate works across channels. The platform comes from `thread.adapter.name`, a
 
 ## Discord: secondary channel
 
-There's no onboarding through Discord: signup and notifications stay on Telegram. A signed-up user asks from chat to link their account, and the supervisor calls `linkDiscordTool`. The tool writes `discordId` onto the email from the `resourceId`, never onto an email the model names. The sparse unique index rejects an ID already owned by another account. The tool returns that as `already-taken` instead of failing, since a person types the number.
+There's no onboarding through Discord: signup and notifications stay on Telegram. A signed-up user asks from chat to link their account, and the agent calls `linkDiscordTool`. The tool writes `discordId` onto the email from the `resourceId`, never onto an email the model names. The sparse unique index rejects an ID already owned by another account. The tool returns that as `already-taken` instead of failing, since a person types the number.
 
 The channel is **opt-in per environment**. `createDiscordAdapter()` throws in its constructor when credentials are missing, so without `DISCORD_BOT_TOKEN` + `DISCORD_APPLICATION_ID` + `DISCORD_PUBLIC_KEY` the adapter isn't registered.
 
@@ -59,12 +59,12 @@ Like Telegram, Discord gets plain text. The OpenUI prompt is only added when `CH
 
 ## Invites
 
-Only admins can invite, and they do it from chat: the supervisor calls `createInviteTool` with the invitee's Google email. The tool doesn't take a name (it comes from the Google profile). It returns a `t.me/...?start=<code>` link that the admin forwards to the invitee privately.
+Only admins can invite, and they do it from chat: the agent calls `createInviteTool` with the invitee's Google email. The tool doesn't take a name (it comes from the Google profile). It returns a `t.me/...?start=<code>` link that the admin forwards to the invitee privately.
 
 ```mermaid
 sequenceDiagram
     participant A as Admin (Telegram)
-    participant S as Supervisor
+    participant S as Mostro
     participant M as Mongo
     participant I as Invitee (Telegram)
     A->>S: "invite ana@example.com"
@@ -101,8 +101,8 @@ Exception: the Telegram channel webhook (`/api/agents/*/channels/telegram/webhoo
 Who "owns" each conversation's memory:
 
 - **Channel default**: `telegram:<userId>`. This is still the fallback for groups, and a fail-safe when the resolver can't find the user.
-- **`resolveResourceId`** (in the supervisor): for **new** DM threads, it resolves the sender to their canonical email, using the `platform` Mastra passes in to pick the lookup. It only runs when a thread is created; existing threads keep their owner. As a result, memory is keyed by email, and the app, Telegram, and Discord share resource memory with no migration. The same person writing on two channels ends up with one `resourceId`.
-- **No sub-agents**: the supervisor calls tools directly (pinned or via `search_tools`), so tools see the user's `resourceId` as-is, with no suffix.
+- **`resolveResourceId`** (in the Mostro agent): for **new** DM threads, it resolves the sender to their canonical email, using the `platform` Mastra passes in to pick the lookup. It only runs when a thread is created; existing threads keep their owner. As a result, memory is keyed by email, and the app, Telegram, and Discord share resource memory with no migration. The same person writing on two channels ends up with one `resourceId`.
+- **No sub-agents**: the agent calls tools directly (pinned or via `search_tools`), so tools see the user's `resourceId` as-is, with no suffix.
 
 ## Memory: threadIds
 

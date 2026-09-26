@@ -13,7 +13,7 @@ import { requestRefundTool } from './refunds-request-tool'
 // they're loaded on demand, so context cost doesn't grow with the catalog.
 //
 // New tool = one entry here (+ its skill if it needs instructions). The
-// supervisor's core tools (subscribe, setMyName) stay pinned on the
+// Mostro agent's core tools (subscribe, setMyName) stay pinned on the
 // agent: the critical path never depends on search.
 export const toolRegistry = {
     createInviteTool,

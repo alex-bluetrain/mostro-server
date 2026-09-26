@@ -16,9 +16,9 @@ export const planActivitiesStep = createStep({
 
         // The weather agent was collapsed into Mostro's single loop: any
         // agent works here because the prompt carries all the needed context.
-        const agent = mastra?.getAgent('mostroSupervisor');
+        const agent = mastra?.getAgent('mostroAgent');
         if (!agent) {
-            throw new Error('Supervisor agent not found');
+            throw new Error('Mostro agent not found');
         }
 
         const prompt = `Based on the following weather forecast for ${forecast.location}, suggest appropriate activities:

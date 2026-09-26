@@ -16,8 +16,11 @@
 
 ## Description
 
-A [Mastra](https://mastra.ai) backend with a single supervisor agent that users reach through
-Telegram, Discord (optional) or [mostro-app](https://github.com/alex-bluetrain/mostro-app).
+A [Mastra](https://mastra.ai) backend built as a **single-agent harness**: one agent loop, reached through
+Telegram, Discord (optional) or [mostro-app](https://github.com/alex-bluetrain/mostro-app), with a minimal,
+cache-friendly core prompt. Domain knowledge (diapers, meds, refunds) lives in **skills** the agent loads
+on demand, and domain **tools are discovered via search** instead of being pinned to the prompt. A separate
+internal agent classifies supplier emails.
 
 - **Orders by email**: workflows send requests to suppliers from Mostro's own Gmail account.
 - **Replies resume work**: scheduled polls read the inbox, classify each reply with an LLM, and resume the waiting workflow.

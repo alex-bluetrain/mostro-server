@@ -1,6 +1,6 @@
 import { createSkill } from '@mastra/core/skills'
 
-// Invite instructions that used to live in the supervisor prompt.
+// Invite instructions that used to live in the core prompt.
 // The skill only resolves for admins (see skills-resolver.ts), so a
 // regular user doesn't even see the capability exists.
 export const invitacionesSkill = createSkill({

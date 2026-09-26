@@ -6,11 +6,11 @@
 
 A family-care assistant for recurring orders — diapers, medications, and refunds — reachable from Telegram, Discord, and the [mostro-app](https://github.com/alex-bluetrain/mostro-app) web/Android client. Built with [Mastra](https://mastra.ai/).
 
-A single **supervisor agent** handles every channel. Only its core tools are pinned; domain tools are discovered on demand via tool search and guided by per-domain skills. Each order runs as a workflow with **suspend/resume semantics** — it pauses until Mostro's own mailbox-polling cycle finds and matches the supplier's reply, then notifies subscribed users.
+A **single-agent harness**: one agent loop handles every channel, with a minimal core prompt. Only its core tools are pinned; domain tools are discovered on demand via tool search and guided by per-domain skills. Each order runs as a workflow with **suspend/resume semantics** — it pauses until Mostro's own mailbox-polling cycle finds and matches the supplier's reply, then notifies subscribed users.
 
 ## Features
 
-- **One supervisor, discoverable tools** — `subscribe` and `setMyName` are pinned; everything else (orders, status, invites, Discord linking, weather) is found via `search_tools`, so context cost doesn't grow with the catalog
+- **One agent, discoverable tools** — `subscribe` and `setMyName` are pinned; everything else (orders, status, invites, Discord linking, weather) is found via `search_tools`, so context cost doesn't grow with the catalog
 - **Invite-only access** — canonical user identity keyed by Google email; unknown senders are silently ignored, admins invite people via one-time deep links (see [identity.md](identity.md))
 - **Google bearer auth for the app** — clients send Google's `id_token`; the server verifies it against JWKS and authorizes it against the same users collection as the bot
 - **Generative UI** — the app streams AG-UI events from `/agents/mostro-supervisor/openui` and renders OpenUI Lang responses
@@ -24,7 +24,7 @@ A single **supervisor agent** handles every channel. Only its core tools are pin
 ## Architecture
 
 ```
-Telegram / Discord / mostro-app ──► auth + access gate ──► Mostro Supervisor
+Telegram / Discord / mostro-app ──► auth + access gate ──► Mostro agent
                                                             │  pinned: subscribe, setMyName
                                                             │  search_tools + skills:
                                                             ├──► diapers tools ──► Diapers Workflow (3 steps, 1 suspend)
@@ -43,7 +43,7 @@ Only known users get past the access gate; identity, invites, and memory ownersh
 
 | Agent                 | Description                                                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Mostro Supervisor** | Single entry point for every channel. Pinned core tools + on-demand domain tools (`ToolSearchProcessor`) and skills       |
+| **Mostro**            | Single entry point for every channel. Pinned core tools + on-demand domain tools (`ToolSearchProcessor`) and skills       |
 | **Inbox Classifier**  | Used by the poll workflows to classify supplier replies and extract data against the rules stored in MongoDB             |
 
 ### Workflows
@@ -285,10 +285,10 @@ src/
 │   ├── models/            Mongoose models (users, invites, classifier snapshots + pointers)
 │   └── repositories/      Data access (classifier.repository: findActiveRules, publishSnapshot)
 └── mastra/
-    ├── agents/            mostroSupervisor + inboxClassifierAgent
+    ├── agents/            mostroAgent + inboxClassifierAgent
     ├── tools/             request + get-status per domain, subscribe, setMyName, invites, Discord, weather;
     │                      registry.ts is the search_tools catalog
-    ├── skills/            Per-domain instructions loaded on demand by the supervisor
+    ├── skills/            Per-domain instructions loaded on demand by the Mostro agent
     ├── routes/            Custom API routes (AG-UI/OpenUI stream, invites, users/me, classifier rules, workflows overview)
     ├── workflows/         One directory per workflow (not per domain), suspend/resume workflows
     │   │                  with steps, schemas, and types

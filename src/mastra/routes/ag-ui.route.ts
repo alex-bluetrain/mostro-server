@@ -2,16 +2,16 @@ import type { Message, RunAgentInput } from '@ag-ui/core'
 import { MastraAgent } from '@ag-ui/mastra'
 import { MASTRA_RESOURCE_ID_KEY, MASTRA_THREAD_ID_KEY } from '@mastra/core/request-context'
 import { registerApiRoute } from '@mastra/core/server'
-import { mostroSupervisor } from '../agents/mostro-supervisor'
+import { mostroAgent } from '../agents/mostro-agent'
 import { webThreadMiddleware } from '@lib/web-thread'
 
 // AG-UI entry point for the web client: `@ag-ui/mastra` translates the
-// supervisor stream into AG-UI protocol events, which OpenUI parses with
+// Mostro agent stream into AG-UI protocol events, which OpenUI parses with
 // agUIAdapter() in the browser. There is no `streamHandler`: the API is `run()`,
 // which returns an Observable, and each event is serialized as SSE.
 //
 // The MastraAgent is created per request, not at module level: it carries the
-// requestContext (source of CHANNEL_KEY, which makes the supervisor answer in
+// requestContext (source of CHANNEL_KEY, which makes the agent answer in
 // openui-lang) and the traceId, which would be shared across users if the
 // instance were a singleton.
 export const agUIRoute = registerApiRoute('/agents/mostro-supervisor/openui', {
@@ -25,7 +25,7 @@ export const agUIRoute = registerApiRoute('/agents/mostro-supervisor/openui', {
 
         const { messages, state } = await c.req.json<{ messages: Message[]; state?: RunAgentInput['state'] }>()
 
-        const agent = new MastraAgent({ agent: mostroSupervisor, resourceId, requestContext })
+        const agent = new MastraAgent({ agent: mostroAgent, resourceId, requestContext })
         const encoder = new TextEncoder()
 
         const stream = new ReadableStream({

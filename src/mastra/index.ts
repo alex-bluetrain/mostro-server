@@ -4,7 +4,7 @@ import { MongoDBStore } from '@mastra/mongodb';
 import { DuckDBStore } from "@mastra/duckdb";
 import { MastraCompositeStore } from '@mastra/core/storage';
 import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
-import { mostroSupervisor } from './agents/mostro-supervisor';
+import { mostroAgent } from './agents/mostro-agent';
 import { createTelegramStartHandler } from './lib/telegram-start';
 import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
 import mongoose from 'mongoose';
@@ -100,10 +100,10 @@ export const mastra = new Mastra({
         weatherWorkflow, diapersWorkflow, medsWorkflow, refundsWorkflow,
         diapersPollWorkflow, medsPollWorkflow, refundsPollWorkflow,
     },
-    agents: { mostroSupervisor, inboxClassifier: inboxClassifierAgent },
+    agents: { mostroAgent, inboxClassifier: inboxClassifierAgent },
     // The weather scorers stay registered to run by hand from the playground,
     // but are no longer attached to an agent: the weather agent was folded into
-    // the supervisor, and attaching them there would score every message (from
+    // the Mostro agent, and attaching them there would score every message (from
     // any domain) against weather expectations.
     scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
     storage: new MastraCompositeStore({
@@ -138,15 +138,15 @@ export const mastra = new Mastra({
 // pipeline, so invite redemption is registered here, not in the onDirectMessage
 // gate. initialize() is idempotent: it awaits the initialization addAgent
 // already started and guarantees sdk is available.
-const supervisorChannels = mostroSupervisor.getChannels();
-if (supervisorChannels) {
+const mostroChannels = mostroAgent.getChannels();
+if (mostroChannels) {
     try {
-        await supervisorChannels.initialize(mastra);
-        supervisorChannels.sdk?.onSlashCommand('/start', createTelegramStartHandler());
+        await mostroChannels.initialize(mastra);
+        mostroChannels.sdk?.onSlashCommand('/start', createTelegramStartHandler());
         appLogger.info('[telegram-start] /start handler registered');
     } catch (err) {
         appLogger.error('[telegram-start] channel init failed; /start handler not registered', { err });
     }
 } else {
-    appLogger.warn('[telegram-start] supervisor has no channels; /start handler not registered');
+    appLogger.warn('[telegram-start] agent has no channels; /start handler not registered');
 }

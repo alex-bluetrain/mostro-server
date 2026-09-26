@@ -16,7 +16,7 @@ const envSchema = z.object({
     TELEGRAM_WEBHOOK_SECRET_TOKEN: z.string().min(1),
     // Optional secondary channel. All three or none: the adapter throws in its
     // constructor if any is missing, so without all three it is not registered
-    // (see mostro-supervisor.ts).
+    // (see mostro-agent.ts).
     DISCORD_BOT_TOKEN: z.string().min(1).optional(),
     DISCORD_APPLICATION_ID: z.string().min(1).optional(),
     DISCORD_PUBLIC_KEY: z.string().min(1).optional(),

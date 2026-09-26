@@ -51,7 +51,7 @@ describe('agUIRoute', () => {
         expect((agUIRoute as unknown as { middleware: unknown }).middleware).toBeDefined()
     })
 
-    // Without requestContext the supervisor does not see CHANNEL_KEY and answers
+    // Without requestContext the agent does not see CHANNEL_KEY and answers
     // in plain text, which the OpenUI client cannot render.
     it('passes the requestContext and resourceId to the AG-UI bridge', async () => {
         const handler = (agUIRoute as unknown as { handler: Handler }).handler

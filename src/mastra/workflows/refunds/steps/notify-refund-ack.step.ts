@@ -13,16 +13,16 @@ export const notifyRefundAckStep = createStep({
     execute: async ({ state, setState, mastra }) => {
         const emails = await userRepository.listNotificationEmails()
 
-        const supervisor = mastra?.getAgent('mostroSupervisor')
+        const agent = mastra?.getAgent('mostroAgent')
         let sent = 0
-        if (supervisor) {
+        if (agent) {
             for (const email of emails) {
                 const target = await resolveTelegramThread(mastra, email)
                 if (!target) {
                     mastra?.getLogger().warn(`[notify-refund-ack] no telegram thread for ${email}, skipping`)
                     continue
                 }
-                await supervisor.sendNotificationSignal(
+                await agent.sendNotificationSignal(
                     {
                         source: 'refunds',
                         kind: 'refund-acknowledged',

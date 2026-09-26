@@ -1,7 +1,7 @@
 import { createSkill } from '@mastra/core/skills'
 
 // Instructions that used to live in the weather agent (now collapsed into the
-// supervisor's single loop). The get-weather tool lives in the catalog.
+// agent's single loop). The get-weather tool lives in the catalog.
 export const weatherSkill = createSkill({
     name: 'weather',
     description:

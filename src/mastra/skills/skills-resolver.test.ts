@@ -5,7 +5,7 @@ const { isRequestAdminMock } = vi.hoisted(() => ({ isRequestAdminMock: vi.fn() }
 
 vi.mock('@lib/request-identity', () => ({ isRequestAdmin: isRequestAdminMock }))
 
-import { supervisorSkillsResolver } from './skills-resolver'
+import { mostroSkillsResolver } from './skills-resolver'
 import { invitacionesSkill } from './invitaciones.skill'
 import { weatherSkill } from './weather.skill'
 
@@ -13,11 +13,11 @@ beforeEach(() => {
     isRequestAdminMock.mockReset()
 })
 
-describe('supervisorSkillsResolver', () => {
+describe('mostroSkillsResolver', () => {
     it('exposes invitaciones only to admins (plus the common skills)', async () => {
         isRequestAdminMock.mockResolvedValue(true)
 
-        const skills = await supervisorSkillsResolver({ requestContext: new RequestContext() })
+        const skills = await mostroSkillsResolver({ requestContext: new RequestContext() })
 
         expect(skills).toContain(invitacionesSkill)
         expect(skills).toContain(weatherSkill)
@@ -26,7 +26,7 @@ describe('supervisorSkillsResolver', () => {
     it('hides gated skills from non-admins (and from metadata reads without identity)', async () => {
         isRequestAdminMock.mockResolvedValue(false)
 
-        const skills = await supervisorSkillsResolver({ requestContext: new RequestContext() })
+        const skills = await mostroSkillsResolver({ requestContext: new RequestContext() })
 
         expect(skills).not.toContain(invitacionesSkill)
         expect(skills).toContain(weatherSkill)

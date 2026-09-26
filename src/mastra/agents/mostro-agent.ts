@@ -13,9 +13,9 @@ import { isRequestAdmin } from '@lib/request-identity';
 import { setMyNameTool } from '@tools/set-my-name-tool';
 import { subscribeTool } from '@tools/subscribe-tool';
 import { toolRegistry } from '@tools/registry';
-import { supervisorSkillsResolver } from '../skills/skills-resolver';
+import { mostroSkillsResolver } from '../skills/skills-resolver';
 
-export const MOSTRO_SUPERVISOR_INSTRUCTIONS = `You are Mostro, an assistant that helps the family coordinate recurring orders and updates about the patient.
+export const MOSTRO_INSTRUCTIONS = `You are Mostro, an assistant that helps the family coordinate recurring orders and updates about the patient.
 
 How to handle requests:
 1. For notification subscriptions ("avisame cuando...", "quiero que me avisen"), use subscribeTool. See Notifications below.
@@ -44,7 +44,7 @@ CRITICAL RULE: when a notification signal arrives (system-generated context, not
 
 // The former per-domain sub-agents (meds/diapers/refunds, now skills) injected
 // the date to scope orders by month. That was lost when they became skills: the
-// supervisor needs today's date to resolve "the March order" or "this month".
+// agent needs today's date to resolve "the March order" or "this month".
 function todayHeader(): string {
     const now = new Date();
     return `Today is ${now.toISOString().slice(0, 10)} (YYYY-MM-DD). The current month scope is ${now.toISOString().slice(0, 7)} (YYYY-MM). Use this month unless the user names a different one.`;
@@ -59,8 +59,8 @@ function todayHeader(): string {
 // ambiguous. Do not repeat rules the generated prompt already has (that the
 // whole answer is openui-lang, or the component list): those are regenerated
 // by `pnpm generate:openui-prompt`.
-export function supervisorInstructions({ requestContext }: { requestContext: RequestContext }): string {
-    if (requestContext.get(CHANNEL_KEY) !== 'web') return `${todayHeader()}\n\n${MOSTRO_SUPERVISOR_INSTRUCTIONS}`;
+export function mostroInstructions({ requestContext }: { requestContext: RequestContext }): string {
+    if (requestContext.get(CHANNEL_KEY) !== 'web') return `${todayHeader()}\n\n${MOSTRO_INSTRUCTIONS}`;
 
     return `${OPENUI_SYSTEM_PROMPT}
 
@@ -68,7 +68,7 @@ export function supervisorInstructions({ requestContext }: { requestContext: Req
 
 ${todayHeader()}
 
-${MOSTRO_SUPERVISOR_INSTRUCTIONS}
+${MOSTRO_INSTRUCTIONS}
 
 Channel: web (OpenUI)
 - TextContent soporta markdown, pero usalo sólo inline (negritas, itálicas), nunca para estructura: una tabla va en Table(Col(...)), una lista de opciones en ListBlock(ListItem(...)) y un título en CardHeader. Una tabla markdown adentro de un TextContent se ve rota.
@@ -77,22 +77,25 @@ Channel: web (OpenUI)
 - NO emitas texto antes ni entre tool calls ("un momento", "déjame buscar"): todo texto que emitas se concatena al código y rompe el parser. Llamá las tools en silencio y emití texto una sola vez, al final, empezando directo con root = Card(...).`;
 }
 
-export const mostroSupervisorModel = 'openrouter/deepseek/deepseek-v4-flash';
+export const mostroModel = 'openrouter/deepseek/deepseek-v4-flash';
 
 export const discordEnabled = Boolean(
     appConfig.DISCORD_BOT_TOKEN && appConfig.DISCORD_APPLICATION_ID && appConfig.DISCORD_PUBLIC_KEY
 );
 
-export const mostroSupervisor = new Agent({
+export const mostroAgent = new Agent({
+    // Legacy id from when this agent supervised per-domain sub-agents. Kept
+    // because it is part of public routes (/agents/mostro-supervisor/openui,
+    // the Telegram webhook) that mostro-app and the bot registration depend on.
     id: 'mostro-supervisor',
     name: 'Mostro',
-    instructions: supervisorInstructions,
-    model: mostroSupervisorModel,
+    instructions: mostroInstructions,
+    model: mostroModel,
     // Only the core tools are pinned: subscribe (critical notification rule) and
     // setMyName. The rest live in the catalog and are discovered via
     // search_tools (see tools/registry.ts).
     tools: { setMyNameTool, subscribeTool },
-    skills: supervisorSkillsResolver,
+    skills: mostroSkillsResolver,
     inputProcessors: [
         new ToolSearchProcessor({
             tools: toolRegistry,

@@ -1,7 +1,7 @@
 import { createSkill } from '@mastra/core/skills'
 
 // Instructions that used to live in the meds agent (now collapsed into the
-// supervisor's single loop). The tools live in the catalog.
+// agent's single loop). The tools live in the catalog.
 export const medsSkill = createSkill({
     name: 'meds',
     description:
