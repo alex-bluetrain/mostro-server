@@ -39,9 +39,13 @@ The `users` collection in Mongo (`src/business/models/user.model.ts`):
 `createChannelGate()` (`src/mastra/lib/channel-gate.ts`) runs **before** a message reaches the agent, on all three channel entry points (`onDirectMessage`, `onMention`, `onSubscribedMessage`). An unknown sender costs no tokens and never touches memory:
 
 1. If the sender matches a user, the message goes to the agent.
-2. Otherwise, only a `/start <code>` message (an invite deep link) is considered. Anything else is **silently** ignored.
-3. Redemption is atomic (`findOneAndUpdate`: an unused, unexpired invite is marked used). If two redemptions race, one wins and the other gets null.
-4. Redeeming links the `telegramId` to the invite's user. Only then does the message reach the agent.
+2. Otherwise the message is **silently** ignored.
+
+Invite redemption is not in the gate. The Telegram adapter routes `/start <code>` (an invite deep link) to the Chat SDK slash-command pipeline, so it's handled by `createTelegramStartHandler()` (`src/mastra/lib/telegram-start.ts`), registered in `index.ts`:
+
+1. A known sender just gets a greeting.
+2. Redemption is atomic (`findOneAndUpdate`: an unused, unexpired invite is marked used). If two redemptions race, one wins and the other gets null.
+3. Redeeming links the `telegramId` to the invite's user and posts the welcome message.
 
 The gate works across channels. The platform comes from `thread.adapter.name`, and `findChannelUser` (`lib/channel-user.ts`) maps it to the right lookup (`telegramId` or `discordId`). ID spaces don't cross, so a valid `telegramId` doesn't open the door on Discord. A platform with no mapped identity is rejected by default, so plugging in a new adapter without mapping its identity lets nobody in.
 
