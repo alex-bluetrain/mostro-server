@@ -7,9 +7,9 @@ import { processOutcome } from '@lib/outcome-processor/outcome-processor'
 import { diapersInboxConfig } from '../diapers-inbox.config'
 import { diapersOutcomeHandlers } from '../diapers-outcome-handlers'
 
-// El `mastra` real recién existe cuando termina de construirse el Mastra instance, así que
-// init() (que traduce la query) se difiere a la primera ejecución. init() es idempotente:
-// los ciclos de cron siguientes reusan la query ya traducida.
+// The real `mastra` only exists once the Mastra instance finishes building, so
+// init() (which translates the query) is deferred to the first run. init() is idempotent:
+// subsequent cron cycles reuse the already-translated query.
 const manager = new InboxManager(diapersInboxConfig)
 
 export const pollDiapersMailbox = createStep({
@@ -22,13 +22,13 @@ export const pollDiapersMailbox = createStep({
 
         if (!manager.initialized) await manager.init(mastra)
 
-        // Reglas frescas de Mongo en cada corrida: publicar un snapshot nuevo impacta en
-        // el siguiente ciclo de cron sin redeploy.
+        // Fresh rules from Mongo on every run: publishing a new snapshot takes effect on
+        // the next cron cycle without a redeploy.
         const rules = await classifierRepository.findActiveRules('diapers')
         if (!rules) {
-            // Sin reglas no hay nada que decidir: saltear es preferible a tocar la casilla
-            // y dejar los mails a medio procesar. El aviso ya salio en el boot.
-            logger.warn('[poll-diapers-mailbox] "diapers" todavia no tiene reglas activas, salteo la corrida')
+            // No rules, nothing to decide: skipping beats touching the mailbox
+            // and leaving mails half-processed. The warning already went out at boot.
+            logger.warn('[poll-diapers-mailbox] "diapers" has no active rules yet, skipping this run')
             return { ok: true as const }
         }
 
@@ -39,25 +39,25 @@ export const pollDiapersMailbox = createStep({
                 const { label, data, isDefault } = await classifyMail(mastra, mail.text, rules)
 
                 if (dryRun) {
-                    // Clasificar es sólo lectura, así que se hace igual; lo que se saltea es
-                    // todo lo que deja rastro (labels en Gmail y resume del workflow).
-                    logger.info(`[poll-diapers-mailbox] (dry-run) ${mail.id} -> "${label}"${isDefault ? ' (default: iría a review)' : ''}`, { year: mail.year, month: mail.month, data })
+                    // Classifying is read-only, so it runs anyway; what gets skipped is
+                    // everything that leaves a trace (Gmail labels and workflow resume).
+                    logger.info(`[poll-diapers-mailbox] (dry-run) ${mail.id} -> "${label}"${isDefault ? ' (default: would go to review)' : ''}`, { year: mail.year, month: mail.month, data })
                     continue
                 }
 
                 await manager.applyLabel(mail.id, label)
 
                 if (isDefault) {
-                    // Ningún outcome matcheó: queda marcado para intervención manual.
+                    // No outcome matched: flagged for manual intervention.
                     await manager.applyLabel(mail.id, OUTCOME_REVIEW)
                     continue
                 }
 
                 const result = await processOutcome(diapersOutcomeHandlers, label, { mastra, text: mail.text, year: mail.year, month: mail.month, data })
-                if (!result.ok) logger.error(`[poll-diapers-mailbox] ${mail.id} clasificado como "${label}" pero el handler falló: ${result.reason}`)
+                if (!result.ok) logger.error(`[poll-diapers-mailbox] ${mail.id} classified as "${label}" but the handler failed: ${result.reason}`)
                 await manager.applyLabel(mail.id, result.ok ? OUTCOME_COMPLETED : OUTCOME_FAILED)
             } catch (error) {
-                // Un mail roto no corta el loop: se marca fallido (best-effort) y se sigue.
+                // One broken mail doesn't stop the loop: it's marked failed (best-effort) and we move on.
                 logger.error(`[poll-diapers-mailbox] no pude procesar ${mail.id}`, { error })
                 if (dryRun) continue
                 await manager.applyLabel(mail.id, OUTCOME_FAILED).catch(labelError =>

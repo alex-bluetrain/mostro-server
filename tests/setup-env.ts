@@ -8,9 +8,9 @@ process.env.GMAIL_MAILER_CLIENT_ID = 'test-client-id'
 process.env.GMAIL_MAILER_CLIENT_SECRET = 'test-client-secret'
 process.env.GMAIL_MAILER_REFRESH_TOKEN = 'test-refresh-token'
 process.env.GMAIL_MAILER_SENDER = 'bot@example.com'
-// Asignación directa, no `??=`: los tests assertean contra estos valores. Con `??=`
-// el .env real los pisa, el resultado depende de la máquina y los datos del caso
-// terminan impresos en el log del CI.
+// Direct assignment, not `??=`: the tests assert against these values. With `??=`
+// the real .env overrides them, the result depends on the machine and the case data
+// ends up printed in the CI log.
 process.env.PATIENT_NAME = 'Juana Quintana'
 process.env.DELIVERY_ADDRESS = 'Calle Falsa 123, Springfield'
 process.env.REQUESTER_NAME = 'Francisca Boloños'

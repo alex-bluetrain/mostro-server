@@ -11,7 +11,7 @@ import { medsOutcomeHandlers } from './meds-outcome-handlers'
 const mastra = {} as never
 
 describe('medsOutcomeHandlers', () => {
-    it('meds.delivered toma el año del contexto y el mes de deliveryDate', async () => {
+    it('meds.delivered takes the year from the context and the month from deliveryDate', async () => {
         const data = { deliveryDate: '2025-01-16', deliveryAddress: 'Av. Siempre Viva 742' }
 
         const result = await medsOutcomeHandlers['meds.delivered']({
@@ -31,7 +31,7 @@ describe('medsOutcomeHandlers', () => {
         })
     })
 
-    it('meds.acknowledged usa el mes del contexto (sin fecha extraída)', async () => {
+    it('meds.acknowledged uses the month from the context (no extracted date)', async () => {
         const result = await medsOutcomeHandlers['meds.acknowledged']({
             mastra,
             text: '',

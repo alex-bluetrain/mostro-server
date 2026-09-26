@@ -6,15 +6,15 @@ import type { ClassificationOutcome, ClassificationRules } from './classificatio
 export type ClassificationResult = {
     label: string
     data?: unknown
-    // true cuando ningún outcome matcheó y se aplicó el default-outcome: el step lo usa
-    // para marcar el mail con outcome.review en vez de ejecutar un handler.
+    // true when no outcome matched and the default-outcome was applied: the step uses it
+    // to tag the mail with outcome.review instead of running a handler.
     isDefault: boolean
 }
 
 const ajv = new Ajv({ allErrors: true })
 
-// Funciones puras sobre texto + reglas: sin Gmail, sin side effects. Las reglas vienen
-// de Mongo (snapshot activo) y se leen en cada corrida — este módulo no cachea nada.
+// Pure functions over text + rules: no Gmail, no side effects. The rules come
+// from Mongo (active snapshot) and are read on every run — this module caches nothing.
 export async function classifyMail(mastra: Mastra, text: string, rules: ClassificationRules): Promise<ClassificationResult> {
     const defaultLabel = rules['default-outcome'].label
     const label = await classify(mastra, text, rules.outcomes, defaultLabel)
@@ -67,7 +67,7 @@ async function extract(mastra: Mastra, text: string, outcome: ClassificationOutc
 Mail:
 ${text}`
     const response = await agent.generate(prompt, {
-        // JSON Schema puro del snapshot de Mongo: PublicSchema acepta JSONSchema7 directo.
+        // Plain JSON Schema from the Mongo snapshot: PublicSchema accepts JSONSchema7 directly.
         structuredOutput: { schema: outcome.extract!, errorStrategy: 'strict' },
     })
     return response.object

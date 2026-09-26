@@ -4,12 +4,12 @@ import { appConfig } from '@config/app.config'
 import { appLogger } from './app-logger'
 import { validateRules } from './mail-classifier/validate-rules'
 
-// Bootstrap seed-if-missing de las reglas de clasificación, en el mismo lugar del
-// ciclo de vida que ensureAdminSeed(). Las reglas son una precondición de los polls,
-// no un seed opcional: sin puntero activo el workflow falla en cada corrida.
+// Seed-if-missing bootstrap for the classification rules, at the same lifecycle
+// point as ensureAdminSeed(). The rules are a precondition of the polls,
+// not an optional seed: without an active pointer the workflow fails on every run.
 //
-// Semántica deliberada: si el dominio ya tiene puntero, NO se toca. El día que exista
-// el front de administración, sus ediciones son la verdad y este bootstrap nunca las pisa.
+// Deliberate semantics: if the domain already has a pointer, it's NOT touched. Once
+// the admin front exists, its edits are the truth and this bootstrap never overwrites them.
 const ENV_VAR_NAME: Record<ClassifierDomain, string> = {
     diapers: 'CLASSIFIER_RULES_DIAPERS',
     meds: 'CLASSIFIER_RULES_MEDS',
@@ -37,8 +37,8 @@ export async function ensureClassifierSeed(): Promise<void> {
             continue
         }
 
-        // Un dominio roto no debe frenar el boot: los otros dominios y el bot de
-        // Telegram tienen que seguir andando.
+        // A broken domain must not stop the boot: the other domains and the
+        // Telegram bot have to keep working.
         try {
             const rules = validateRules(JSON.parse(template))
             const version = await classifierRepository.publishSnapshot({

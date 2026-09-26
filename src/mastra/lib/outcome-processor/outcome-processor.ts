@@ -10,16 +10,16 @@ export type HandleContext = {
 
 export type HandleResult = { ok: true } | { ok: false; reason: string }
 
-// Adapta el {ok, reason?} que devuelven los helpers *-run.ts al HandleResult que espera el
-// step, descartando campos internos (status, suspendedStep, etc) que no le importan acá.
+// Adapts the {ok, reason?} returned by the *-run.ts helpers to the HandleResult the
+// step expects, dropping internal fields (status, suspendedStep, etc) it doesn't care about.
 export function toHandleResult(result: { ok: boolean; reason?: string }): HandleResult {
     return result.ok ? { ok: true } : { ok: false, reason: result.reason ?? 'unknown' }
 }
 
 export type OutcomeHandlers = Record<string, (ctx: HandleContext) => Promise<HandleResult>>
 
-// Ejecuta el side effect asociado a un label de clasificación. Label sin handler
-// registrado = outcome sin side effects, se considera completado.
+// Runs the side effect tied to a classification label. A label with no registered
+// handler = outcome with no side effects, considered completed.
 export async function processOutcome(handlers: OutcomeHandlers, label: string, ctx: HandleContext): Promise<HandleResult> {
     const handler = handlers[label]
     if (!handler) return { ok: true }

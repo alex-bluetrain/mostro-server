@@ -14,8 +14,8 @@ export const planActivitiesStep = createStep({
             throw new Error('Forecast data not found')
         }
 
-        // El weather agent se colapsó en el loop único de Mostro: cualquier
-        // agente sirve acá porque el prompt trae todo el contexto necesario.
+        // The weather agent was collapsed into Mostro's single loop: any
+        // agent works here because the prompt carries all the needed context.
         const agent = mastra?.getAgent('mostroSupervisor');
         if (!agent) {
             throw new Error('Supervisor agent not found');

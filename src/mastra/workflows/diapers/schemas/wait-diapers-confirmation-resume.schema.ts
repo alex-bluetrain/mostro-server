@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
-// Contrato de reanudación: originalmente era el payload de un webhook confiable, pero
-// ahora también lo llena una extracción de LLM contra el mail de la farmacia (ver
-// mail-extractor.ts). Una fecha plausible pero mal formateada ("11/03/2026") pasaría un
-// z.string() suelto, toUnix() la convertiría en NaN, y el state la rechazaría con el run
-// ya en `failed` (no `suspended`) — irrecuperable, porque readSuspendedStep no ve un run
-// fallido. El regex hace que el modelo (con structured output estricto) la rechace antes
-// de tocar el run: el mail cae a mostro-failed y el mes sobrevive intacto.
+// Resume contract: originally the payload of a trusted webhook, but
+// now it's also filled by an LLM extraction against the pharmacy's mail (see
+// mail-extractor.ts). A plausible but badly formatted date ("11/03/2026") would pass a
+// bare z.string(), toUnix() would turn it into NaN, and the state would reject it with the run
+// already `failed` (not `suspended`) — unrecoverable, because readSuspendedStep doesn't see a
+// failed run. The regex makes the model (with strict structured output) reject it before
+// touching the run: the mail falls to mostro-failed and the month survives intact.
 export const waitDiapersConfirmationResumeSchema = z.object({
     deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'la fecha debe tener el formato YYYY-MM-DD').describe('fecha de entrega en formato YYYY-MM-DD'),
     deliveryAddress: z.string().describe('domicilio de entrega completo'),

@@ -4,9 +4,9 @@ import { userRepository } from '@business/repositories'
 import { emailFromResourceId } from '@business/identity'
 import { appLogger } from '@lib/app-logger'
 
-// El alta sigue siendo por Telegram: esta tool sólo suma Discord como canal
-// extra sobre una identidad que ya existe. Por eso no crea usuarios ni toca
-// invitaciones, y el email sale del resourceId (no se lo pedimos al modelo).
+// Sign-up is still via Telegram: this tool only adds Discord as an extra
+// channel on an identity that already exists. That's why it doesn't create users or touch
+// invites, and the email comes from the resourceId (we don't ask the model for it).
 export const linkDiscordTool = createTool({
     id: 'link-discord',
     description:
@@ -32,8 +32,8 @@ export const linkDiscordTool = createTool({
                 ? { linked: true, reason: 'ok' as const }
                 : { linked: false, reason: 'unknown-user' as const }
         } catch (err) {
-            // El id lo tipea una persona: que choque con otra cuenta es un error
-            // de entrada esperable, no una falla. El resto sí se propaga.
+            // The id is typed by a person: colliding with another account is an expected
+            // input error, not a failure. Everything else propagates.
             if ((err as { code?: number }).code === 11000) {
                 return { linked: false, reason: 'already-taken' as const }
             }

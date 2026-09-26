@@ -6,7 +6,7 @@ function encode(text: string) {
 }
 
 describe('stripMailBody', () => {
-    it('devuelve el texto plano tal cual cuando no hay citas', () => {
+    it('returns plain text as-is when there are no quotes', () => {
         const payload = {
             mimeType: 'text/plain',
             body: { data: encode('Confirmamos la entrega para el 11/03.') },
@@ -15,7 +15,7 @@ describe('stripMailBody', () => {
         expect(stripMailBody(payload)).toBe('Confirmamos la entrega para el 11/03.')
     })
 
-    it('corta el hilo citado del texto plano', () => {
+    it('cuts the quoted thread from plain text', () => {
         const payload = {
             mimeType: 'text/plain',
             body: { data: encode('Confirmamos la entrega para el 11/03.\n\n> Cuando entregan?\n> Gracias.') },
@@ -24,7 +24,7 @@ describe('stripMailBody', () => {
         expect(stripMailBody(payload)).toBe('Confirmamos la entrega para el 11/03.')
     })
 
-    it('extrae el texto de un mail solo-html con cheerio', () => {
+    it('extracts the text of an html-only mail with cheerio', () => {
         const payload = {
             mimeType: 'text/html',
             body: { data: encode('<html><body><p>Confirmamos la entrega para el <b>11/03</b>.</p></body></html>') },
@@ -33,7 +33,7 @@ describe('stripMailBody', () => {
         expect(stripMailBody(payload)).toBe('Confirmamos la entrega para el 11/03.')
     })
 
-    it('descarta el contenido de <style>/<script> y separa celdas de tabla con espacio', () => {
+    it('drops <style>/<script> content and separates table cells with a space', () => {
         const payload = {
             mimeType: 'text/html',
             body: {
@@ -51,7 +51,7 @@ describe('stripMailBody', () => {
         expect(result).toContain('Fecha 11/03')
     })
 
-    it('prefiere text/plain sobre text/html cuando ambos están presentes', () => {
+    it('prefers text/plain over text/html when both are present', () => {
         const payload = {
             mimeType: 'multipart/alternative',
             parts: [
@@ -63,7 +63,7 @@ describe('stripMailBody', () => {
         expect(stripMailBody(payload)).toBe('versión en texto plano')
     })
 
-    it('encuentra la parte plana anidada dentro de multipart/mixed > multipart/alternative', () => {
+    it('finds the plain part nested inside multipart/mixed > multipart/alternative', () => {
         const payload = {
             mimeType: 'multipart/mixed',
             parts: [
@@ -80,7 +80,7 @@ describe('stripMailBody', () => {
         expect(stripMailBody(payload)).toBe('contenido anidado')
     })
 
-    it('devuelve string vacío cuando no hay ninguna parte de texto', () => {
+    it('returns an empty string when there is no text part', () => {
         const payload = {
             mimeType: 'multipart/mixed',
             parts: [
@@ -91,7 +91,7 @@ describe('stripMailBody', () => {
         expect(stripMailBody(payload)).toBe('')
     })
 
-    it('devuelve string vacío con payload undefined', () => {
+    it('returns an empty string with an undefined payload', () => {
         expect(stripMailBody(undefined)).toBe('')
     })
 })

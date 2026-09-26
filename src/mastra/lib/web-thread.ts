@@ -2,13 +2,13 @@ import { MASTRA_RESOURCE_ID_KEY, MASTRA_THREAD_ID_KEY } from '@mastra/core/reque
 import type { Middleware } from '@mastra/core/server'
 import { channelThreadId } from './channel-thread-id'
 
-// `Middleware` es la unión del handler y su forma con `path`; las rutas sólo
-// aceptan el handler pelado.
+// `Middleware` is the union of the handler and its `path` form; routes only
+// accept the bare handler.
 type MiddlewareHandler = Extract<Middleware, { handler: unknown }>['handler']
 
-// Marca de canal para el prompt dinámico del supervisor. La ponemos acá, en la
-// única puerta por la que entra el browser: si algún día hay otro canal, no
-// hereda OpenUI por accidente —tiene que pedirlo explícitamente.
+// Channel marker for the supervisor's dynamic prompt. We set it here, at the
+// only door the browser comes through: if there's ever another channel, it doesn't
+// inherit OpenUI by accident —it has to ask for it explicitly.
 export const CHANNEL_KEY = 'mostro.channel'
 
 export const webThreadMiddleware: MiddlewareHandler = async (c, next) => {

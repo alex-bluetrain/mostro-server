@@ -1,21 +1,21 @@
-// Formato del JSON de reglas que vive en Mongo (ver docs/clasificador.md). El `extract`
-// es JSON Schema puro: es la fuente de verdad, se pasa directo al LLM como structured
-// output y se valida con ajv. No hay Zod acá a propósito.
+// Format of the rules JSON that lives in Mongo (see docs/clasificador.md). `extract`
+// is plain JSON Schema: it's the source of truth, passed straight to the LLM as structured
+// output and validated with ajv. No Zod here on purpose.
 export type ExtractSchema = Record<string, unknown>
 
 export type ClassificationOutcome = {
     label: string
-    // Descripción en lenguaje natural para que el LLM decida si el mail matchea.
+    // Natural-language description so the LLM decides whether the mail matches.
     condition: string
-    // Few-shot para guiar al LLM: fragmentos de mails que matchean y que no.
+    // Few-shot to guide the LLM: fragments of mails that match and that don't.
     examples?: { match?: string[]; no_match?: string[] }
-    // Presente solo si hay datos que extraer del mail en caso de match.
+    // Present only if there's data to extract from the mail on a match.
     extract?: ExtractSchema
 }
 
 export type ClassificationRules = {
     outcomes: ClassificationOutcome[]
-    // Se aplica cuando ningún outcome matchea. No es terminal: marca el mail para
-    // intervención manual (el step le agrega outcome.review).
+    // Applied when no outcome matches. Not terminal: it flags the mail for
+    // manual intervention (the step adds outcome.review).
     'default-outcome': { label: string }
 }

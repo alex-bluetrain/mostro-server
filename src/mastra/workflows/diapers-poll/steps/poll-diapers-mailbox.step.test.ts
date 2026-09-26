@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-// El step instancia el InboxManager al importarse, así que los mocks tienen que existir
-// antes que el módulo: vi.hoisted los sube junto con vi.mock.
+// The step instantiates the InboxManager on import, so the mocks must exist
+// before the module: vi.hoisted lifts them along with vi.mock.
 const { fetchMails, applyLabel } = vi.hoisted(() => ({ fetchMails: vi.fn(), applyLabel: vi.fn() }))
 
 vi.mock('@lib/inbox-manager/inbox-manager', async importOriginal => ({
@@ -38,14 +38,14 @@ describe('poll-diapers-mailbox step', () => {
         vi.clearAllMocks()
     })
 
-    it('no toca la casilla si el dominio todavía no tiene reglas', async () => {
+    it("doesn't touch the mailbox if the domain has no rules yet", async () => {
         vi.mocked(classifierRepository.findActiveRules).mockResolvedValue(null)
 
         await expect(execute()).resolves.toEqual({ ok: true })
         expect(fetchMails).not.toHaveBeenCalled()
     })
 
-    it('avisa por log cuál es el dominio sin reglas, para que se pueda accionar', async () => {
+    it('logs which domain has no rules, so it can be acted on', async () => {
         vi.mocked(classifierRepository.findActiveRules).mockResolvedValue(null)
 
         await execute()
@@ -53,7 +53,7 @@ describe('poll-diapers-mailbox step', () => {
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('diapers'))
     })
 
-    it('procesa la casilla cuando hay reglas activas', async () => {
+    it('processes the mailbox when there are active rules', async () => {
         vi.mocked(classifierRepository.findActiveRules).mockResolvedValue({ outcomes: [] } as any)
         fetchMails.mockResolvedValue([{ id: 'mail-1', text: 'hola', year: 2026, month: 7 }])
         vi.mocked(classifyMail).mockResolvedValue({ label: 'confirmado', data: {}, isDefault: false } as any)

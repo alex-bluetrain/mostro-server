@@ -3,22 +3,22 @@ import { appConfig } from '@config/app.config'
 import { createGoogleAuth } from './google-auth'
 import { appLogger } from './app-logger'
 
-// El webhook del canal Telegram vive bajo /api/* (protegido por default del
-// middleware de auth) pero ya tiene su propia protección vía
-// TELEGRAM_WEBHOOK_SECRET_TOKEN, así que debe quedar público o el bot muere.
+// The Telegram channel webhook lives under /api/* (protected by default by the
+// auth middleware) but already has its own protection via
+// TELEGRAM_WEBHOOK_SECRET_TOKEN, so it must stay public or the bot dies.
 export const TELEGRAM_CHANNEL_WEBHOOK = /^\/api\/agents\/[^/]+\/channels\/telegram\/webhook$/
 
-// Dos formas de entrar, ambas por bearer token y ninguna gateada por licencia
-// EE (el gate sólo cubre login UI: SSO y credenciales, que acá no usamos):
-// - id_token de Google directo → clientes con PKCE (Expo), verificado vs JWKS.
-// - SimpleAuth con STUDIO_API_KEY → Studio, un único token de admin.
+// Two ways in, both via bearer token and neither gated by the EE
+// license (the gate only covers login UI: SSO and credentials, which we don't use):
+// - Google id_token directly → PKCE clients (Expo), verified against JWKS.
+// - SimpleAuth with STUDIO_API_KEY → Studio, a single admin token.
 //
-// CompositeAuth prueba los providers en orden y gana el primero que autentica;
-// unifica los `public` de todos, así que el webhook de Telegram sigue abierto.
+// CompositeAuth tries the providers in order and the first to authenticate wins;
+// it merges every provider's `public`, so the Telegram webhook stays open.
 //
-// Si sumás entradas a SimpleAuth, tené en cuenta que authorizeUser() acepta
-// cualquier token del mapa para todo: no hay permisos por ruta ni por rol, y el
-// mapa se congela en el boot (alta/baja de un usuario implica reiniciar).
+// If you add entries to SimpleAuth, keep in mind authorizeUser() accepts
+// any token in the map for everything: there are no per-route or per-role permissions, and the
+// map is frozen at boot (adding/removing a user means restarting).
 export function createServerAuth() {
     const googleAuth = createGoogleAuth()
 
@@ -26,21 +26,21 @@ export function createServerAuth() {
         ? new SimpleAuth({
             tokens: {
                 [appConfig.STUDIO_API_KEY]: {
-                    // El id ES el resourceId (ver mapUserToResourceId abajo). Cuando
-                    // hay ADMIN_EMAIL, lo usamos para que el token resuelva al IUser
-                    // real en Mongo (resolveRequestUser sólo busca si contiene '@'):
-                    // así /users/me responde y isRequestAdmin ve el role real, en vez
-                    // del literal 'admin' que no matchea ningún usuario de negocio.
+                    // The id IS the resourceId (see mapUserToResourceId below). When
+                    // ADMIN_EMAIL is set, we use it so the token resolves to the real IUser
+                    // in Mongo (resolveRequestUser only looks up ids containing '@'):
+                    // that way /users/me responds and isRequestAdmin sees the real role, instead
+                    // of the literal 'admin' which matches no business user.
                     id: appConfig.ADMIN_EMAIL ?? 'admin',
                     name: appConfig.ADMIN_NAME ?? 'Admin',
                     role: 'admin',
                 },
             },
             public: [TELEGRAM_CHANNEL_WEBHOOK],
-            // Sin esto, SimpleAuth autentica pero no puebla MASTRA_RESOURCE_ID_KEY,
-            // y webThreadMiddleware corta con 401. El resource id fija la memoria
-            // del admin (con ADMIN_EMAIL, comparte hilo/memoria con el mismo usuario
-            // logueado por Google; sin él, hilo propio 'admin' separado).
+            // Without this, SimpleAuth authenticates but doesn't populate MASTRA_RESOURCE_ID_KEY,
+            // and webThreadMiddleware rejects with 401. The resource id pins the admin's
+            // memory (with ADMIN_EMAIL, it shares thread/memory with the same user
+            // logged in via Google; without it, a separate 'admin' thread).
             mapUserToResourceId: user => user.id,
         })
         : undefined
@@ -48,8 +48,8 @@ export function createServerAuth() {
     const providers = [googleAuth, studioAuth].filter(p => p !== undefined)
 
     if (providers.length === 0) {
-        // Sin providers el server queda abierto, así que es un error de config
-        // que conviene que duela en el boot y no en el primer request.
+        // With no providers the server is left open, so it's a config error
+        // that should hurt at boot, not on the first request.
         throw new Error('[server-auth] no auth provider configured: set GOOGLE_CLIENT_ID and/or STUDIO_API_KEY')
     }
 

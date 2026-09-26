@@ -40,8 +40,8 @@ export async function startRefundRequest(
         initialState: { requestedBy: input.requestedBy, year: input.year, month: input.month },
     })
 
-    // run.start() no lanza: un step que falla vuelve como status 'failed'. Sin esto,
-    // el agente recibiría un objeto opaco y podría anunciar un pedido que nunca salió.
+    // run.start() doesn't throw: a failing step comes back as status 'failed'. Without this,
+    // the agent would get an opaque object and could announce an order that never went out.
     if (result.status === 'failed') {
         return {
             alreadyInProgress: false as const,

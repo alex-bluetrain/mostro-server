@@ -16,7 +16,7 @@ function depsWith(overrides: Partial<RequestIdentityDeps> = {}): RequestIdentity
 }
 
 describe('resolveRequestUser', () => {
-    it('resuelve por email cuando el resourceId canónico está seteado (web)', async () => {
+    it('resolves by email when the canonical resourceId is set (web)', async () => {
         const deps = depsWith({ getUserByEmail: vi.fn().mockResolvedValue(admin) })
         const requestContext = new RequestContext()
         requestContext.set(MASTRA_RESOURCE_ID_KEY, 'Ana@Example.com ')
@@ -27,7 +27,7 @@ describe('resolveRequestUser', () => {
         expect(deps.getUserByEmail).toHaveBeenCalledWith('ana@example.com')
     })
 
-    it('resuelve por canal (platform + userId) cuando no hay resourceId', async () => {
+    it('resolves by channel (platform + userId) when there is no resourceId', async () => {
         const deps = depsWith({ getUserByTelegramId: vi.fn().mockResolvedValue(member) })
         const requestContext = new RequestContext()
         requestContext.set('channel', { platform: 'telegram', userId: '12345' })
@@ -38,14 +38,14 @@ describe('resolveRequestUser', () => {
         expect(deps.getUserByTelegramId).toHaveBeenCalledWith('12345')
     })
 
-    it('devuelve null sin requestContext o sin identidad (metadata reads)', async () => {
+    it('returns null without requestContext or identity (metadata reads)', async () => {
         const deps = depsWith()
 
         expect(await resolveRequestUser(undefined, deps)).toBeNull()
         expect(await resolveRequestUser(new RequestContext(), deps)).toBeNull()
     })
 
-    it('cachea el lookup por RequestContext (el filter corre por candidato)', async () => {
+    it('caches the lookup per RequestContext (the filter runs per candidate)', async () => {
         const getUserByEmail = vi.fn().mockResolvedValue(admin)
         const deps = depsWith({ getUserByEmail })
         const requestContext = new RequestContext()
@@ -59,7 +59,7 @@ describe('resolveRequestUser', () => {
 })
 
 describe('isRequestAdmin', () => {
-    it('true solo para role admin', async () => {
+    it('true only for the admin role', async () => {
         const adminCtx = new RequestContext()
         adminCtx.set(MASTRA_RESOURCE_ID_KEY, 'ana@example.com')
         const memberCtx = new RequestContext()

@@ -13,7 +13,7 @@ export const requestMedsStep = createStep({
     outputSchema: z.object({}),
     stateSchema: medsStateSchema,
     execute: async ({ inputData, state, setState }) => {
-        // Primero el correo: si falla, el estado no avanza y el pedido se puede reintentar limpio.
+        // Mail first: if it fails, the state doesn't advance and the order can be retried cleanly.
         const { subject, text } = medsRequestEmail({
             medications: inputData.medications,
             requestedBy: inputData.requestedBy,

@@ -1,8 +1,8 @@
 import { Schema, model } from 'mongoose';
 import type { ClassifierDomain } from './classifier-snapshot.model';
 
-// Puntero mutable: qué versión de classifier-snapshots está activa por dominio.
-// Rollback = apuntar a una versión anterior.
+// Mutable pointer: which classifier-snapshots version is active per domain.
+// Rollback = point at an older version.
 export interface IClassifier {
   domain: ClassifierDomain;
   version: number;

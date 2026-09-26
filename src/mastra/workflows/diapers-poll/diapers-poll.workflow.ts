@@ -5,14 +5,14 @@ import { pollDiapersMailbox } from './steps/poll-diapers-mailbox.step'
 
 export const diapersPollWorkflow = createWorkflow({
     id: 'diapers-poll',
-    // dryRun sólo se usa cuando se dispara a mano desde el playground: clasifica y loguea,
-    // pero no etiqueta en Gmail ni resume workflows. El cron siempre corre en falso.
+    // dryRun is only used when triggered by hand from the playground: it classifies and logs,
+    // but doesn't label in Gmail or resume workflows. The cron always runs with it false.
     inputSchema: z.object({ dryRun: z.boolean().default(false) }),
     outputSchema: z.object({ ok: z.literal(true) }),
     schedule: {
-        // Desfasado de meds (7,22,37,52) y refunds (12,27,42,57): sigue siendo cada 15
-        // minutos, pero así los tres dominios no golpean la API de Gmail en el mismo
-        // instante.
+        // Offset from meds (7,22,37,52) and refunds (12,27,42,57): still every 15
+        // minutes, but this way the three domains don't hit the Gmail API at the same
+        // instant.
         cron: '2,17,32,47 * * * *',
         timezone: 'America/Argentina/Buenos_Aires',
         inputData: { dryRun: false },

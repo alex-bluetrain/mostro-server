@@ -7,8 +7,8 @@ import { resolveMailDate } from './resolve-mail-date'
 
 export type GmailClient = ReturnType<typeof gmail>
 
-// Labels de estado del procesamiento, ortogonales al label de clasificación. Un mail con
-// cualquiera de estos tres ya fue procesado y la query de fetch lo excluye.
+// Processing status labels, orthogonal to the classification label. A mail with
+// any of these three was already processed and the fetch query excludes it.
 export const OUTCOME_COMPLETED = 'outcome.completed'
 export const OUTCOME_FAILED = 'outcome.failed'
 export const OUTCOME_REVIEW = 'outcome.review'
@@ -24,8 +24,8 @@ export type FetchedMail = {
     month: number
 }
 
-// Único módulo que habla con Gmail: lee mails y aplica labels. No clasifica ni ejecuta
-// side effects — eso es de mail-classifier y outcome-processor.
+// The only module that talks to Gmail: reads mails and applies labels. It doesn't classify or run
+// side effects — that's mail-classifier's and outcome-processor's job.
 export class InboxManager {
     initialized = false
     private query!: string
@@ -38,13 +38,13 @@ export class InboxManager {
         this.gmail = gmailClientOverride ?? getGmailClient()
     }
 
-    // Idempotente: la instancia puede declararse a nivel de módulo (donde `mastra` todavía
-    // no existe) y llamarse init(mastra) en cada ejecución; solo la primera hace trabajo.
+    // Idempotent: the instance can be declared at module level (where `mastra` doesn't
+    // exist yet) and init(mastra) called on every run; only the first one does any work.
     async init(mastra: Mastra): Promise<void> {
         if (this.initialized) return
         const translated = await translateQuery(mastra, this.config.queryDescription)
-        // Las exclusiones son estáticas: mail sin label de estado = no procesado. No
-        // dependen de las reglas de clasificación, así que no hay que derivarlas de Mongo.
+        // The exclusions are static: mail without a status label = not processed. They
+        // don't depend on the classification rules, so there's no need to derive them from Mongo.
         const exclusions = [OUTCOME_COMPLETED, OUTCOME_FAILED, OUTCOME_REVIEW].map(label => `-label:${label}`)
         this.query = [translated, ...exclusions].join(' ')
         this.initialized = true
@@ -55,8 +55,8 @@ export class InboxManager {
         if (!this.initialized) throw new Error('InboxManager: llamá a init() antes de fetch()')
 
         const { data } = await this.gmail.users.messages.list({ userId: 'me', q: this.query })
-        // Gmail's messages.list devuelve de más nuevo a más viejo y no tiene parámetro de orden
-        // ascendente, así que invertir alcanza para procesar de más viejo a más nuevo sin ordenar por fecha.
+        // Gmail's messages.list returns newest to oldest and has no ascending-order parameter,
+        // so reversing is enough to process oldest to newest without sorting by date.
         const ids = (data.messages ?? []).map(m => m.id).filter((id): id is string => Boolean(id)).reverse()
 
         const mails: FetchedMail[] = []

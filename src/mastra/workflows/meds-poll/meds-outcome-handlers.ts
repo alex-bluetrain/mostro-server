@@ -3,8 +3,8 @@ import { monthOfIsoDate } from '@lib/date-scope'
 import { acknowledgeMedsOrder, confirmMedsDelivery } from '@lib/meds-run'
 import { waitMedsConfirmationResumeSchema } from '../meds/schemas/wait-meds-confirmation-resume.schema'
 
-// Estos labels DEBEN coincidir con los del JSON de reglas seedeado en Mongo. Un label
-// clasificado sin handler acá se marca outcome.completed sin side effects.
+// These labels MUST match the ones in the rules JSON seeded in Mongo. A label
+// classified without a handler here is marked outcome.completed with no side effects.
 const MEDS_ACKNOWLEDGED = 'meds.acknowledged'
 const MEDS_DELIVERED = 'meds.delivered'
 
@@ -13,7 +13,7 @@ export const medsOutcomeHandlers: OutcomeHandlers = {
         toHandleResult(await acknowledgeMedsOrder(mastra, year, month)),
     [MEDS_DELIVERED]: async ({ mastra, year, data }) => {
         const { deliveryDate, deliveryAddress } = waitMedsConfirmationResumeSchema.parse(data)
-        // Mismo criterio que diapers: mes de la entrega, año del contexto.
+        // Same rule as diapers: month of the delivery, year from the context.
         return toHandleResult(await confirmMedsDelivery(mastra, {
             deliveryDate,
             deliveryAddress,

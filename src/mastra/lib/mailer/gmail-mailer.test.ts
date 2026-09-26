@@ -23,7 +23,7 @@ import { sendEmail } from './gmail-mailer'
 
 const message = { to: 'farmacia@proveedor.test', subject: 'Pedido', text: 'Talle: M' }
 
-// Un error con la forma que devuelve Gaxios (el cliente HTTP de googleapis).
+// An error shaped like what Gaxios (the googleapis HTTP client) returns.
 function httpError(status: number) {
   return Object.assign(new Error(`Request failed with status code ${status}`), { status })
 }

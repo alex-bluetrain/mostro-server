@@ -8,9 +8,9 @@ import { diapersOutcomeHandlers } from './diapers-outcome-handlers'
 const mastra = {} as never
 
 describe('diapersOutcomeHandlers', () => {
-    it('toma el año del contexto y el mes de deliveryDate', async () => {
-        // El LLM puede adivinar mal el año ("2025-01-16" para un pedido de 2026-01):
-        // el año sale de los headers (contexto), el mes de la fecha de entrega.
+    it('takes the year from the context and the month from deliveryDate', async () => {
+        // The LLM can guess the year wrong ("2025-01-16" for a 2026-01 order):
+        // the year comes from the headers (context), the month from the delivery date.
         const data = { deliveryDate: '2025-01-16', deliveryAddress: 'Av. Siempre Viva 742', quantity: 12 }
 
         const result = await diapersOutcomeHandlers['diapers.confirmed']({

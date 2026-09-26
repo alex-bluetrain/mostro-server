@@ -11,7 +11,7 @@ function contextWith(entries: Record<string, unknown>) {
 }
 
 describe('webThreadMiddleware', () => {
-    it('deriva el thread del resourceId que puso el auth', async () => {
+    it('derives the thread from the resourceId set by auth', async () => {
         const c = contextWith({ [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com' })
         const next = vi.fn()
 
@@ -21,9 +21,9 @@ describe('webThreadMiddleware', () => {
         expect(next).toHaveBeenCalled()
     })
 
-    // El thread se computa del token, no del body: mandar identidad ajena no
-    // cambia a que memoria entra la conversacion.
-    it('ignora el thread que venga del cliente', async () => {
+    // The thread is computed from the token, not the body: sending someone else's identity
+    // doesn't change which memory the conversation goes into.
+    it('ignores a thread sent by the client', async () => {
         const c = contextWith({
             [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com',
             [MASTRA_THREAD_ID_KEY]: 'victima@example.com:web',
@@ -34,7 +34,7 @@ describe('webThreadMiddleware', () => {
         expect(c.get('requestContext').get(MASTRA_THREAD_ID_KEY)).toBe('ana@gmail.com:web')
     })
 
-    it('sin resourceId corta con 401', async () => {
+    it('rejects with 401 without a resourceId', async () => {
         const c = contextWith({})
         const next = vi.fn()
 

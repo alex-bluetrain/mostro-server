@@ -12,7 +12,7 @@ describe('GMAIL_TIMEOUT_MS', () => {
 })
 
 describe('isRetryable', () => {
-    it('trata un error sin status como retriable (red/timeout)', () => {
+    it('treats an error without status as retriable (network/timeout)', () => {
         expect(isRetryable(new Error('ECONNRESET'))).toBe(true)
     })
 
@@ -28,16 +28,16 @@ describe('isRetryable', () => {
 })
 
 describe('isInvalidGrant', () => {
-    it('detecta el error por el campo response.data.error', () => {
+    it('detects the error via the response.data.error field', () => {
         const error = Object.assign(new Error('x'), { response: { data: { error: 'invalid_grant' } } })
         expect(isInvalidGrant(error)).toBe(true)
     })
 
-    it('detecta el error cuando viene en el mensaje', () => {
+    it('detects the error when it comes in the message', () => {
         expect(isInvalidGrant(new Error('invalid_grant: token expired'))).toBe(true)
     })
 
-    it('no marca un error genérico como invalid_grant', () => {
+    it('does not flag a generic error as invalid_grant', () => {
         expect(isInvalidGrant(httpError(503))).toBe(false)
     })
 })
@@ -47,14 +47,14 @@ describe('withGmailRetry', () => {
         vi.useRealTimers()
     })
 
-    it('devuelve el resultado sin reintentar cuando la operación funciona a la primera', async () => {
+    it('returns the result without retrying when the operation works first time', async () => {
         const operation = vi.fn().mockResolvedValue('ok')
 
         await expect(withGmailRetry(operation)).resolves.toBe('ok')
         expect(operation).toHaveBeenCalledTimes(1)
     })
 
-    it('reintenta con backoff los errores retriables y termina en éxito', async () => {
+    it('retries retriable errors with backoff and ends in success', async () => {
         vi.useFakeTimers()
         const operation = vi.fn()
             .mockRejectedValueOnce(httpError(503))
@@ -68,21 +68,21 @@ describe('withGmailRetry', () => {
         expect(operation).toHaveBeenCalledTimes(3)
     })
 
-    it('no reintenta un error no retriable', async () => {
+    it('does not retry a non-retriable error', async () => {
         const operation = vi.fn().mockRejectedValue(httpError(403))
 
         await expect(withGmailRetry(operation)).rejects.toThrow(/403/)
         expect(operation).toHaveBeenCalledTimes(1)
     })
 
-    it('no reintenta un invalid_grant aunque no tenga status', async () => {
+    it('does not retry an invalid_grant even without a status', async () => {
         const operation = vi.fn().mockRejectedValue(new Error('invalid_grant'))
 
         await expect(withGmailRetry(operation)).rejects.toThrow('invalid_grant')
         expect(operation).toHaveBeenCalledTimes(1)
     })
 
-    it('se rinde después de 3 intentos con errores retriables', async () => {
+    it('gives up after 3 attempts with retriable errors', async () => {
         vi.useFakeTimers()
         const operation = vi.fn().mockRejectedValue(httpError(503))
 

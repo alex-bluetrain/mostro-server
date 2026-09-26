@@ -1,7 +1,7 @@
-// Publica un snapshot de reglas de clasificación en Mongo y mueve el puntero activo.
-// El JSON vive FUERA del repo (contiene datos sensibles) y se pasa por --file.
+// Publishes a classification-rules snapshot to Mongo and moves the active pointer.
+// The JSON lives OUTSIDE the repo (it contains sensitive data) and is passed via --file.
 //
-// Uso: pnpm seed:classifier -- --domain diapers --file C:/path/rules.json --author "Alex" --changelog "seed inicial"
+// Usage: pnpm seed:classifier -- --domain diapers --file C:/path/rules.json --author "Alex" --changelog "initial seed"
 
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
@@ -31,7 +31,7 @@ function parseCliArgs(): { domain: Domain; file: string; author: string; changel
     if (!domain || !file || !author || !changelog) {
         fail('faltan argumentos. Uso: --domain <diapers|meds|refunds> --file <path.json> --author <nombre> --changelog <texto>')
     }
-    if (!DOMAINS.includes(domain as Domain)) fail(`dominio inválido "${domain}": tiene que ser uno de ${DOMAINS.join(', ')}`)
+    if (!DOMAINS.includes(domain as Domain)) fail(`invalid domain "${domain}": must be one of ${DOMAINS.join(', ')}`)
     return { domain: domain as Domain, file, author, changelog }
 }
 
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     await mongoose.connect(appConfig.MONGODB_URI, { dbName: appConfig.MONGODB_DB_NAME })
     try {
         const version = await classifierRepository.publishSnapshot({ domain, author, changelog, rules })
-        console.info(`[seed-classifier] publicado snapshot v${version} de "${domain}" (${rules.outcomes.length} outcomes) y puntero actualizado`)
+        console.info(`[seed-classifier] published snapshot v${version} of "${domain}" (${rules.outcomes.length} outcomes) and updated the pointer`)
     } finally {
         await mongoose.disconnect()
     }

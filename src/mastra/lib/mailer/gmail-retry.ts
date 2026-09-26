@@ -1,14 +1,14 @@
-// Criterio de reintento y timeout compartido entre el mailer (gmail-mailer.ts) y el
-// InboxManager (../inbox-manager/inbox-manager.ts): los dos hablan con la misma
-// API de Gmail sobre el mismo cliente compartido (./gmail-client.ts) y tienen que tratar
-// los mismos errores transitorios de la misma forma. No duplicar este criterio ahi.
+// Retry and timeout policy shared between the mailer (gmail-mailer.ts) and the
+// InboxManager (../inbox-manager/inbox-manager.ts): both talk to the same
+// Gmail API over the same shared client (./gmail-client.ts) and must treat
+// the same transient errors the same way. Don't duplicate this policy there.
 
 const MAX_ATTEMPTS = 3
 const BASE_DELAY_MS = 500
 
-// gaxios no pone timeout si no se lo pedimos: sin esto, un cuelgue de red puede tardar
-// los ~300s por defecto de undici. Pasalo como segundo argumento de cada llamada al
-// cliente de Gmail: gmail.users.messages.list({...}, { timeout: GMAIL_TIMEOUT_MS }).
+// gaxios sets no timeout unless asked: without this, a network hang can take
+// undici's default ~300s. Pass it as the second argument of every call to the
+// Gmail client: gmail.users.messages.list({...}, { timeout: GMAIL_TIMEOUT_MS }).
 export const GMAIL_TIMEOUT_MS = 15000
 
 function httpStatusOf(error: unknown): number | undefined {
@@ -16,15 +16,15 @@ function httpStatusOf(error: unknown): number | undefined {
     return candidate?.response?.status ?? candidate?.status
 }
 
-// El refresh token se revocó, o la app OAuth quedó en modo Testing y el token murió a los 7 días.
+// The refresh token was revoked, or the OAuth app stayed in Testing mode and the token died after 7 days.
 export function isInvalidGrant(error: unknown): boolean {
     const candidate = error as { message?: string; response?: { data?: { error?: string } } }
     return candidate?.response?.data?.error === 'invalid_grant'
         || (candidate?.message ?? '').includes('invalid_grant')
 }
 
-// Sin status HTTP = fallo de red o timeout, que sí conviene reintentar.
-// Un 4xx no mejora esperando: token revocado, destinatario inválido, cuerpo mal armado.
+// No HTTP status = network failure or timeout, which is worth retrying.
+// A 4xx doesn't improve by waiting: revoked token, invalid recipient, malformed body.
 export function isRetryable(error: unknown): boolean {
     const status = httpStatusOf(error)
     if (status === undefined) return true
@@ -36,10 +36,10 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Reintenta con backoff exponencial los errores transitorios (red, 429, 5xx). Un
-// invalid_grant o cualquier otro error no retriable se propaga en el primer intento;
-// cada llamador decide cómo explicarlo (el mailer, por ejemplo, lo traduce a un mensaje
-// que apunta a `pnpm run gmail:auth`).
+// Retries transient errors (network, 429, 5xx) with exponential backoff. An
+// invalid_grant or any other non-retriable error propagates on the first attempt;
+// each caller decides how to explain it (the mailer, for example, turns it into a message
+// pointing at `pnpm run gmail:auth`).
 export async function withGmailRetry<T>(operation: () => Promise<T>): Promise<T> {
     let lastError: unknown
 
@@ -57,7 +57,7 @@ export async function withGmailRetry<T>(operation: () => Promise<T>): Promise<T>
         }
     }
 
-    // Inalcanzable: el loop siempre retorna o lanza en la última iteración. Está acá
-    // solo para que TypeScript vea una salida en todos los caminos.
+    // Unreachable: the loop always returns or throws on the last iteration. It's here
+    // only so TypeScript sees an exit on every path.
     throw lastError
 }

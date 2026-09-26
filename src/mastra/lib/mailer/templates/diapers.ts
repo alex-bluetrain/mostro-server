@@ -11,8 +11,8 @@ export function diapersRequestEmail({
     month: number
 }): { subject: string; text: string } {
     const period = formatYearMonth(year, month)
-    // Datos del caso, comunes a todos los flujos: quién recibe y quién firma el pedido
-    // ante el proveedor. No es el usuario que disparó el pedido por Telegram.
+    // Case data, shared by every flow: who receives and who signs the order
+    // with the provider. It's not the user who triggered the order via Telegram.
     const patientName = appConfig.PATIENT_NAME
     const deliveryAddress = appConfig.DELIVERY_ADDRESS
     const requesterName = appConfig.REQUESTER_NAME

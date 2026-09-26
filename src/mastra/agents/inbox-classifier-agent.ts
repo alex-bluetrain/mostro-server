@@ -1,8 +1,8 @@
 import { Agent } from '@mastra/core/agent'
 
-// Un solo agente para dos tareas (traducir la query, clasificar el mail): ambas son
-// lectura de lenguaje natural sin tools ni memoria, así que no justifican dos agentes
-// separados. Quien llama arma el prompt según la tarea.
+// A single agent for two tasks (translate the query, classify the mail): both are
+// natural-language reading with no tools or memory, so they don't justify two separate
+// agents. The caller builds the prompt for the task.
 export const inboxClassifierAgent = new Agent({
     id: 'inbox-classifier-agent',
     name: 'Inbox Classifier',

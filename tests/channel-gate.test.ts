@@ -32,14 +32,14 @@ describe('createChannelGate', () => {
         expect(defaultHandler).toHaveBeenCalledExactlyOnceWith(thread, message)
     })
 
-    it('desconocido es ignorado en silencio', async () => {
+    it('an unknown user is silently ignored', async () => {
         const deps = makeDeps()
         const defaultHandler = vi.fn(async () => {})
         await createChannelGate(deps)(makeThread('telegram'), makeMessage('222', 'hola'), defaultHandler, ctx)
         expect(defaultHandler).not.toHaveBeenCalled()
     })
 
-    it('resuelve por discordId cuando el mensaje llega por discord', async () => {
+    it('resolves by discordId when the message comes via discord', async () => {
         const getUserByDiscordId = vi.fn(async () => member)
         const deps = makeDeps({ getUserByDiscordId })
         const defaultHandler = vi.fn(async () => {})
@@ -49,8 +49,8 @@ describe('createChannelGate', () => {
         expect(defaultHandler).toHaveBeenCalledOnce()
     })
 
-    // Un telegramId válido no debe abrir la puerta en Discord: son espacios de
-    // ids distintos y cruzarlos dejaría entrar a cualquiera con el número.
+    // A valid telegramId must not open the door on Discord: they're different
+    // id spaces and crossing them would let in anyone with the number.
     it('no cruza identidades entre plataformas', async () => {
         const deps = makeDeps({ getUserByTelegramId: vi.fn(async () => member) })
         const defaultHandler = vi.fn(async () => {})

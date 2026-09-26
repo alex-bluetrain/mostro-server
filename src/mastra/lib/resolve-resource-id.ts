@@ -2,13 +2,13 @@ import { findChannelUser, defaultChannelUserDeps, type ChannelUserDeps } from '.
 
 export type ResolveResourceIdDeps = ChannelUserDeps
 
-// Memoria canónica: todo thread queda a nombre del email del usuario, así la
-// web y cada canal de chat comparten memoria. Un usuario que escribe por
-// Telegram y por Discord aterriza en el mismo resourceId.
+// Canonical memory: every thread is filed under the user's email, so the
+// web and every chat channel share memory. A user who writes via
+// Telegram and via Discord lands on the same resourceId.
 //
-// El gate rechaza desconocidos antes de llegar acá, así que un lookup fallido
-// es un bug o un fallo de DB: se lanza para que sea ruidoso en vez de crear un
-// thread huérfano con un id no canónico.
+// The gate rejects unknown users before they get here, so a failed lookup
+// is a bug or a DB failure: it throws so it's loud instead of creating an
+// orphan thread with a non-canonical id.
 export function createResolveResourceId(deps: ResolveResourceIdDeps = defaultChannelUserDeps) {
     return async ({
         platform,

@@ -11,14 +11,14 @@ export const defaultChannelUserDeps: ChannelUserDeps = {
     getUserByDiscordId: discordId => userRepository.findByDiscordId(discordId),
 }
 
-// Traduce (plataforma, id del autor) al usuario de Mongo, que es la fuente de
-// verdad. Telegram es el canal de alta: todo usuario tiene telegramId. Discord
-// es opcional y se vincula después, así que un id de Discord sin dueño es un
-// usuario que todavía no corrió link-discord, no un error.
+// Maps (platform, author id) to the Mongo user, which is the source of
+// truth. Telegram is the signup channel: every user has a telegramId. Discord
+// is optional and linked later, so an unowned Discord id is a user
+// who hasn't run link-discord yet, not an error.
 //
-// Una plataforma desconocida devuelve null a propósito: si mañana se enchufa un
-// adapter nuevo sin mapear su identidad, el gate lo rechaza en vez de dejar
-// entrar a cualquiera.
+// An unknown platform returns null on purpose: if a new adapter gets plugged in
+// tomorrow without mapping its identity, the gate rejects it instead of letting
+// anyone in.
 export async function findChannelUser(
     deps: ChannelUserDeps,
     platform: string,

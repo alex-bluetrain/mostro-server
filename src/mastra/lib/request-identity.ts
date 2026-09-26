@@ -13,15 +13,15 @@ export const defaultRequestIdentityDeps: RequestIdentityDeps = {
     getUserByEmail: email => userRepository.findByEmail(email),
 }
 
-// La identidad puede venir por dos puertas:
-// - Web: el auth middleware pone el email (resourceId canónico) en
+// Identity can come through two doors:
+// - Web: the auth middleware puts the email (canonical resourceId) in
 //   MASTRA_RESOURCE_ID_KEY.
-// - Canales de chat: el pipeline pone ChannelContext (platform + userId) bajo
-//   la key 'channel' antes de correr los input processors.
+// - Chat channels: the pipeline puts ChannelContext (platform + userId) under
+//   the 'channel' key before running the input processors.
 //
-// El lookup se cachea por RequestContext: el filter del ToolSearchProcessor
-// corre por cada tool candidata de una búsqueda, y el resolver de skills corre
-// aparte — sin cache serían N hits a Mongo por request.
+// The lookup is cached per RequestContext: the ToolSearchProcessor filter
+// runs for every candidate tool in a search, and the skills resolver runs
+// separately — without a cache it'd be N Mongo hits per request.
 const cache = new WeakMap<RequestContext, Promise<IUser | null>>()
 
 export function resolveRequestUser(

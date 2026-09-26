@@ -1,9 +1,9 @@
 import { userRepository } from './repositories';
 import type { IUser } from './models/user.model';
 
-// Todo resourceId canónico es el email del usuario (resolveResourceId lo
-// garantiza al crear threads). Un id sin '@' no es un email: devuelve null y
-// las tools lo reportan como usuario desconocido.
+// Every canonical resourceId is the user's email (resolveResourceId
+// guarantees it when creating threads). An id without '@' isn't an email: returns null and
+// the tools report it as an unknown user.
 export function emailFromResourceId(resourceId: string): string | null {
   const base = resourceId.trim().toLowerCase();
   return base.includes('@') ? base : null;

@@ -1,7 +1,7 @@
 import { createSkill } from '@mastra/core/skills'
 
-// Instrucciones que antes vivían en el weather agent (hoy colapsado en el
-// loop único del supervisor). La tool get-weather vive en el catálogo.
+// Instructions that used to live in the weather agent (now collapsed into the
+// supervisor's single loop). The get-weather tool lives in the catalog.
 export const weatherSkill = createSkill({
     name: 'weather',
     description:

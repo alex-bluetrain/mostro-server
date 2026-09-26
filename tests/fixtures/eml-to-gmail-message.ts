@@ -16,11 +16,11 @@ export type GmailMessage = {
     payload: GmailPart
 }
 
-// `MailParser.tree` no está en los tipos de `@types/mailparser`: es el árbol interno que
-// mailparser arma mientras parsea, pero tiene exactamente la forma que necesitamos para imitar
-// lo que devuelve `users.messages.get({format:'full'})` de Gmail. El cast de abajo es el único
-// lugar donde se asume esta forma; tests/eml-to-gmail-message.test.ts la protege: si un upgrade
-// de mailparser la cambia, ese test rompe en CI en vez de que el CLI mienta en silencio.
+// `MailParser.tree` isn't in the `@types/mailparser` types: it's the internal tree
+// mailparser builds while parsing, but it has exactly the shape we need to mimic
+// what Gmail's `users.messages.get({format:'full'})` returns. The cast below is the only
+// place this shape is assumed; tests/eml-to-gmail-message.test.ts guards it: if a mailparser
+// upgrade changes it, that test breaks in CI instead of the CLI silently lying.
 type MimeHeaderLine = { key: string; line: string }
 type MimeNode = {
     contentType: string
@@ -58,8 +58,8 @@ export async function emlToGmailMessage(source: Buffer | URL | string): Promise<
     const parser = new MailParser()
     const ended = new Promise<void>((resolve, reject) => {
         parser.on('error', reject)
-        // Los adjuntos frenan el parser hasta que se los "libera": si no se drenan sus datos
-        // y se llama release(), un .eml real con imágenes/PDFs nunca dispara 'end'.
+        // Attachments stall the parser until they're "released": if their data isn't drained
+        // and release() isn't called, a real .eml with images/PDFs never fires 'end'.
         parser.on('data', (data: { type: string; release?: () => void }) => {
             if (data.type === 'attachment' && data.release) data.release()
         })

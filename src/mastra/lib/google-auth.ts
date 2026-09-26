@@ -4,9 +4,9 @@ import { assertInvitedAndSyncName } from './invite-gate'
 import { TELEGRAM_CHANNEL_WEBHOOK } from './server-auth'
 import { appLogger } from './app-logger'
 
-// Identidad verificada por Google directo: el cliente (Expo Android/web con
-// PKCE, o cualquiera) manda el id_token de Google como Bearer y este provider
-// lo verifica contra JWKS (firma RS256, iss, aud, exp). Sin clientSecret opera
+// Identity verified directly by Google: the client (Expo Android/web with
+// PKCE, or anything else) sends the Google id_token as a Bearer and this provider
+// verifies it against JWKS (RS256 signature, iss, aud, exp). Without clientSecret it runs in
 // Bearer mode only: no SSO/cookie, no GOOGLE_COOKIE_PASSWORD.
 //
 // A valid token is not enough to get in: authorizeUser requires the email to

@@ -7,22 +7,22 @@ describe('requestDiapersInputSchema', () => {
         expect(result.success).toBe(true)
     })
 
-    it('rechaza un talle fuera del enum', () => {
+    it('rejects a size outside the enum', () => {
         const result = requestDiapersInputSchema.safeParse({ size: 'L', requestedBy: 'Ana' })
         expect(result.success).toBe(false)
     })
 
-    it('rechaza una solicitud sin talle', () => {
+    it('rejects a request without a size', () => {
         const result = requestDiapersInputSchema.safeParse({ requestedBy: 'Ana' })
         expect(result.success).toBe(false)
     })
 
-    it('rechaza una solicitud sin requestedBy', () => {
+    it('rejects a request without requestedBy', () => {
         const result = requestDiapersInputSchema.safeParse({ size: 'M' })
         expect(result.success).toBe(false)
     })
 
-    it('rechaza requestedBy vacío', () => {
+    it('rejects an empty requestedBy', () => {
         const result = requestDiapersInputSchema.safeParse({ size: 'M', requestedBy: '' })
         expect(result.success).toBe(false)
     })

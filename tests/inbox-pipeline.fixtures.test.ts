@@ -45,7 +45,7 @@ const rules: ClassificationRules = {
 }
 
 describe('InboxManager + classifyMail con fixtures .eml reales', () => {
-    it('clasifica una confirmación de entrega y etiqueta con el label correcto', async () => {
+    it('classifies a delivery confirmation and tags it with the right label', async () => {
         const { payload } = await emlToGmailMessage(fixtureUrl('confirmacion-entrega.eml'))
         const { gmail, modify } = buildGmail(payload)
         const { mastra, generate } = buildMastra([
@@ -68,7 +68,7 @@ describe('InboxManager + classifyMail con fixtures .eml reales', () => {
         })
     })
 
-    it('clasifica un error de envío con el segundo outcome', async () => {
+    it('classifies a send error with the second outcome', async () => {
         const { payload } = await emlToGmailMessage(fixtureUrl('error-envio.eml'))
         const { gmail, modify } = buildGmail(payload)
         const { mastra, generate } = buildMastra([
@@ -90,7 +90,7 @@ describe('InboxManager + classifyMail con fixtures .eml reales', () => {
         })
     })
 
-    it('parsea la parte HTML separando celdas de tabla con espacios', async () => {
+    it('parses the HTML part separating table cells with spaces', async () => {
         const { payload } = await emlToGmailMessage(fixtureUrl('mail-html.eml'))
         const { gmail } = buildGmail(payload)
         const { mastra } = buildMastra([{ query: 'from:farmacia.test newer_than:30d' }])
@@ -105,7 +105,7 @@ describe('InboxManager + classifyMail con fixtures .eml reales', () => {
         expect(mail.text).not.toContain('<style')
     })
 
-    it('quita el texto citado de un mail con respuesta', async () => {
+    it('strips the quoted text from a reply mail', async () => {
         const { payload } = await emlToGmailMessage(fixtureUrl('mail-con-quoted.eml'))
         const { gmail } = buildGmail(payload)
         const { mastra } = buildMastra([{ query: 'from:farmacia.test newer_than:30d' }])
@@ -118,7 +118,7 @@ describe('InboxManager + classifyMail con fixtures .eml reales', () => {
         expect(mail.text).not.toContain('queria consultar por el estado del reintegro')
     })
 
-    it('cae en el default-outcome para un mail genérico', async () => {
+    it('falls back to the default-outcome for a generic mail', async () => {
         const { payload } = await emlToGmailMessage(fixtureUrl('mail-generico.eml'))
         const { gmail, modify } = buildGmail(payload)
         const { mastra } = buildMastra([

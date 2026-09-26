@@ -12,7 +12,7 @@ describe('requestRefundInputSchema', () => {
         expect(result.success).toBe(false)
     })
 
-    it('rechaza requestedBy vacío', () => {
+    it('rejects an empty requestedBy', () => {
         const result = requestRefundInputSchema.safeParse({ amount: 100, requestedBy: '' })
         expect(result.success).toBe(false)
     })

@@ -1,7 +1,7 @@
-// La Gmail API recibe el mensaje entero (headers + cuerpo) en un solo campo `raw`,
-// codificado en base64url. Esto lo arma.
+// The Gmail API takes the whole message (headers + body) in a single `raw` field,
+// base64url-encoded. This builds it.
 
-// RFC 2047: los headers son ASCII, así que un asunto con acentos viaja codificado.
+// RFC 2047: headers are ASCII, so a subject with accents travels encoded.
 function encodeSubject(subject: string): string {
     return `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`
 }
@@ -23,7 +23,7 @@ export function buildRawMessage({
         `Subject: ${encodeSubject(subject)}`,
         'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8',
-        // Sin esto el default RFC 2045 es 7bit, pero los cuerpos llevan acentos (pañales, Depósito).
+        // Without this the RFC 2045 default is 7bit, but the bodies carry accents (pañales, Depósito).
         'Content-Transfer-Encoding: 8bit',
     ]
 

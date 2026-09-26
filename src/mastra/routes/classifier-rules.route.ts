@@ -9,8 +9,8 @@ function parseDomain(raw: string | undefined): ClassifierDomain | null {
     return CLASSIFIER_DOMAINS.includes(raw as ClassifierDomain) ? (raw as ClassifierDomain) : null
 }
 
-// Historial completo por dominio, con el puntero activo. Es una sola pantalla y
-// son tres dominios: paginar o pedirlos de a uno sería más ida y vuelta que datos.
+// Full history per domain, with the active pointer. It's a single screen and
+// three domains: paginating or fetching one at a time would be more round trips than data.
 export const listClassifierRulesRoute = registerApiRoute('/classifier-rules', {
     method: 'GET',
     handler: async c => {
@@ -30,8 +30,8 @@ export const listClassifierRulesRoute = registerApiRoute('/classifier-rules', {
     },
 })
 
-// Detalle: las reglas completas de una versión. Inmutables, así que el cliente
-// puede cachearlas sin miedo.
+// Detail: the full rules of a version. Immutable, so the client
+// can cache them without worry.
 export const getClassifierSnapshotRoute = registerApiRoute('/classifier-rules/:domain/:version', {
     method: 'GET',
     handler: async c => {
@@ -59,8 +59,8 @@ export const getClassifierSnapshotRoute = registerApiRoute('/classifier-rules/:d
     },
 })
 
-// Publicar = crear una versión nueva y activarla. Nunca se edita un snapshot:
-// por eso no hay PUT sobre /:version.
+// Publish = create a new version and activate it. A snapshot is never edited:
+// that's why there's no PUT on /:version.
 export const publishClassifierSnapshotRoute = registerApiRoute('/classifier-rules/:domain', {
     method: 'POST',
     handler: async c => {
@@ -81,8 +81,8 @@ export const publishClassifierSnapshotRoute = registerApiRoute('/classifier-rule
             return c.json({ error: err instanceof Error ? err.message : 'Invalid rules' }, 400)
         }
 
-        // El autor es quien está firmado, no lo que mande el cliente: el changelog
-        // es historia y tiene que ser confiable.
+        // The author is whoever is signed in, not whatever the client sends: the changelog
+        // is history and has to be trustworthy.
         const version = await classifierRepository.publishSnapshot({
             domain,
             author: admin.name || admin.email,
@@ -94,7 +94,7 @@ export const publishClassifierSnapshotRoute = registerApiRoute('/classifier-rule
     },
 })
 
-// Rollback: mover el puntero a una versión que ya existe.
+// Rollback: move the pointer to a version that already exists.
 export const activateClassifierVersionRoute = registerApiRoute('/classifier-rules/:domain/active', {
     method: 'PUT',
     handler: async c => {

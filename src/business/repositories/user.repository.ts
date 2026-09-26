@@ -33,9 +33,9 @@ export class UserRepository {
     return result.matchedCount > 0;
   }
 
-  // Vincula un canal secundario a una identidad que ya existe. El índice unique
-  // sparse impide reclamar un discordId ya tomado: el duplicado sale como
-  // E11000 y lo traduce la tool, porque el id lo tipea el usuario.
+  // Links a secondary channel to an existing identity. The unique sparse
+  // index prevents claiming a discordId that's already taken: the duplicate comes out as
+  // E11000 and the tool translates it, because the user types the id.
   async linkDiscordId(email: string, discordId: string): Promise<boolean> {
     const result = await User.updateOne(
       { email: email.toLowerCase() },
@@ -65,8 +65,8 @@ export class UserRepository {
     return result;
   }
 
-  // Preferencias de aviso: el opt-in vive en el user, así que suscribirse no
-  // crea nada nuevo, sólo prende un flag sobre una identidad ya invitada.
+  // Notification preferences: the opt-in lives on the user, so subscribing
+  // creates nothing new, it just flips a flag on an already-invited identity.
   async setNotifications(email: string, enabled: boolean): Promise<boolean> {
     const result = await User.updateOne(
       { email: email.toLowerCase() },

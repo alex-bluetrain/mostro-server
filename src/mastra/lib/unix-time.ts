@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
-// Fechas del state de los workflows: unix timestamp en segundos.
+// Workflow state dates: unix timestamp in seconds.
 export const unixTimestampSchema = z.number().int().describe('Unix timestamp en segundos')
 
 export function nowUnix(): number {
     return Math.floor(Date.now() / 1000)
 }
 
-// Convierte una fecha en string (ISO o YYYY-MM-DD) a unix timestamp en segundos.
+// Converts a date string (ISO or YYYY-MM-DD) to a unix timestamp in seconds.
 export function toUnix(date: string): number {
     return Math.floor(new Date(date).getTime() / 1000)
 }

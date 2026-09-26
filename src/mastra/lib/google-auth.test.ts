@@ -16,12 +16,12 @@ describe('createGoogleAuth', () => {
         vi.mocked(assertInvitedAndSyncName).mockReset().mockResolvedValue(undefined)
     })
 
-    it('sin client id no crea el provider', () => {
+    it('does not create the provider without a client id', () => {
         config.GOOGLE_CLIENT_ID = undefined
         expect(createGoogleAuth()).toBeUndefined()
     })
 
-    it('autoriza al email invitado y pasa emailVerified al gate', async () => {
+    it('authorizes an invited email and passes emailVerified to the gate', async () => {
         const auth = createGoogleAuth()!
         await expect(
             auth.authorizeUser({ email: 'ana@gmail.com', emailVerified: true, name: 'Ana Pérez' } as any),
@@ -33,15 +33,15 @@ describe('createGoogleAuth', () => {
         })
     })
 
-    // El id_token puede estar bien firmado por Google pero el acceso sigue siendo
-    // por invitación: el gate corta acá.
-    it('rechaza un id_token valido de un email desconocido', async () => {
+    // The id_token can be correctly signed by Google but access is still
+    // invite-only: the gate stops it here.
+    it('rejects a valid id_token from an unknown email', async () => {
         vi.mocked(assertInvitedAndSyncName).mockRejectedValue(new Error('invite-only'))
         const auth = createGoogleAuth()!
         await expect(auth.authorizeUser({ email: 'stranger@gmail.com', emailVerified: true } as any)).resolves.toBe(false)
     })
 
-    it('rechaza un token sin email', async () => {
+    it('rejects a token without an email', async () => {
         const auth = createGoogleAuth()!
         await expect(auth.authorizeUser({ googleId: 'x' } as any)).resolves.toBe(false)
         expect(assertInvitedAndSyncName).not.toHaveBeenCalled()

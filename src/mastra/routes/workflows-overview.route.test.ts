@@ -9,7 +9,7 @@ import { readWorkflowsOverview } from '@lib/workflows-overview'
 
 const mastra = { tag: 'mastra' }
 
-// El handler sólo usa `req.query`, `get('mastra')` y `json()`.
+// The handler only uses `req.query`, `get('mastra')` and `json()`.
 function run(query: Record<string, string> = {}): Promise<{ body: any; status?: number }> {
     const c = {
         req: { query: (key: string) => query[key] },

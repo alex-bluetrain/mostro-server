@@ -1,13 +1,13 @@
-// Genera runs de diapers/meds/refunds en meses pasados usando el engine real de
-// workflows, para testear la reportería web sin pasar por el ciclo de mails.
-// No inserta snapshots a mano: corre start + resumes de los helpers *-run.ts,
-// dejando cada run en el estado intermedio que pida el escenario.
+// Generates diapers/meds/refunds runs in past months using the real workflow
+// engine, to test web reporting without going through the mail cycle.
+// It doesn't insert snapshots by hand: it runs start + resumes from the *-run.ts helpers,
+// leaving each run in whatever intermediate state the scenario asks for.
 //
-// El mailer corre en dry-run (MAILER_DRY_RUN) y no hay agentes registrados:
-// los notify steps avanzan el estado con sent = 0.
+// The mailer runs in dry-run (MAILER_DRY_RUN) and no agents are registered:
+// the notify steps advance the state with sent = 0.
 //
-// Uso: pnpm seed:runs                       (los 3 dominios)
-//      pnpm seed:runs -- --domain diapers   (uno solo)
+// Usage: pnpm seed:runs                       (all 3 domains)
+//      pnpm seed:runs -- --domain diapers   (just one)
 
 import { parseArgs } from 'node:util'
 import mongoose from 'mongoose'
@@ -25,15 +25,15 @@ import { startDiapers, confirmDiapersDate } from '@lib/diapers-run'
 import { startMedsOrder, acknowledgeMedsOrder, confirmMedsDelivery } from '@lib/meds-run'
 import { startRefundRequest, acknowledgeRefund, confirmRefund, receiveDeposit } from '@lib/refunds-run'
 
-// El check es en tiempo de ejecución de sendEmail(), así que setearlo acá
-// (después de los imports hoisteados) llega antes de que corra cualquier workflow.
+// The check happens when sendEmail() runs, so setting it here
+// (after the hoisted imports) lands before any workflow runs.
 process.env.MAILER_DRY_RUN = 'true'
 
 const DOMAINS = ['diapers', 'meds', 'refunds'] as const
 type Domain = (typeof DOMAINS)[number]
 
-// ── Escenarios (editables) ──────────────────────────────────────────────────
-// Datos siempre ficticios: el repo es público.
+// ── Scenarios (editable) ────────────────────────────────────────────────────
+// Always fictitious data: the repo is public.
 
 type DiapersScenario = {
     year: number
@@ -43,8 +43,8 @@ type DiapersScenario = {
     confirm?: { deliveryDate: string; deliveryAddress: string; quantity: number }
 }
 
-// Un año completo: 2025-08 → 2026-07 (el mes actual, 2026-08, tiene el pedido
-// real y no se toca). La mayoría completos, con algunos estados intermedios.
+// A full year: 2025-08 → 2026-07 (the current month, 2026-08, has the real
+// order and is left alone). Mostly completed, with a few intermediate states.
 const ADDRESS = 'Calle Falsa 123'
 
 const diapersScenarios: DiapersScenario[] = [
@@ -85,7 +85,7 @@ const medsScenarios: MedsScenario[] = [
     { year: 2026, month: 4, medications: ['Enalapril 10', 'Levotiroxina 50'], requestedBy: 'Alex', ack: true, confirm: { deliveryDate: '2026-04-09', deliveryAddress: ADDRESS } },
     // Suspendido esperando acuse (meds_requested)
     { year: 2026, month: 5, medications: ['Ibuprofeno 600'], requestedBy: 'Ana' },
-    // Acusado, esperando confirmación de entrega (ack_notified)
+    // Acknowledged, waiting for delivery confirmation (ack_notified)
     { year: 2026, month: 6, medications: ['Amoxicilina 500'], requestedBy: 'Alex', ack: true },
     // Completo (meds_notification_sent)
     { year: 2026, month: 7, medications: ['Paracetamol 1g'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2026-07-10', deliveryAddress: ADDRESS } },
@@ -102,8 +102,8 @@ type RefundsScenario = {
     deposit?: { depositAmount: number; depositDate: string }
 }
 
-// `reason` siempre presente: si falta, Mongo persiste null y el state schema
-// (`reason: z.string().optional()`) rechaza el estado al validar el resume.
+// `reason` always present: if missing, Mongo persists null and the state schema
+// (`reason: z.string().optional()`) rejects the state when validating the resume.
 const refundsScenarios: RefundsScenario[] = [
     { year: 2025, month: 8, amount: 12000, reason: 'Consulta médica', requestedBy: 'Ana', ack: true, confirm: { refundReference: 'REF-2025-0801' }, deposit: { depositAmount: 12000, depositDate: '2025-08-22' } },
     { year: 2025, month: 9, amount: 8500, reason: 'Farmacia', requestedBy: 'Alex', ack: true, confirm: { refundReference: 'REF-2025-0901' }, deposit: { depositAmount: 8500, depositDate: '2025-09-19' } },
@@ -117,7 +117,7 @@ const refundsScenarios: RefundsScenario[] = [
     { year: 2026, month: 4, amount: 15000, reason: 'Consulta médica', requestedBy: 'Ana' },
     // Acusado (ack_notified)
     { year: 2026, month: 5, amount: 22000, reason: 'Estudios de laboratorio', requestedBy: 'Alex', ack: true },
-    // Confirmado, esperando depósito (confirmation_notified)
+    // Confirmed, waiting for deposit (confirmation_notified)
     {
         year: 2026, month: 6, amount: 18000, reason: 'Sesión de kinesiología', requestedBy: 'Ana', ack: true,
         confirm: { refundReference: 'REF-2026-0601' },
@@ -130,12 +130,12 @@ const refundsScenarios: RefundsScenario[] = [
     },
 ]
 
-// ── Reloj simulado ──────────────────────────────────────────────────────────
-// Los steps toman timestamps con nowUnix() (que usa Date.now), así que cada
-// paso se corre con Date.now apuntando al momento simulado: la solicitud cae
-// entre el 1 y el 5 del mes y los pasos siguientes días después, como en la
-// realidad. Pseudo-random determinista por run: re-correr el seed da las
-// mismas fechas.
+// ── Simulated clock ─────────────────────────────────────────────────────────
+// Steps take timestamps with nowUnix() (which uses Date.now), so each
+// step runs with Date.now pointing at the simulated moment: the request lands
+// between the 1st and 5th of the month and the following steps days later, as in
+// reality. Deterministic pseudo-random per run: re-running the seed gives the
+// same dates.
 
 const DAY = 86_400
 
@@ -150,8 +150,8 @@ async function atTime<T>(unixSeconds: number, fn: () => Promise<T>): Promise<T> 
     }
 }
 
-// mulberry32: seeds consecutivos (mes a mes) dan salidas bien mezcladas,
-// a diferencia de un LCG simple donde el primer valor queda correlacionado.
+// mulberry32: consecutive seeds (month to month) give well-mixed outputs,
+// unlike a plain LCG where the first value stays correlated.
 function seededRandom(seed: number): () => number {
     return () => {
         seed = (seed + 0x6d2b79f5) | 0
@@ -186,7 +186,7 @@ function parseCliArgs(): { domains: readonly Domain[] } {
     const { values } = parseArgs({ options: { domain: { type: 'string' } } })
     if (!values.domain) return { domains: DOMAINS }
     if (!DOMAINS.includes(values.domain as Domain)) {
-        fail(`dominio inválido "${values.domain}": tiene que ser uno de ${DOMAINS.join(', ')}`)
+        fail(`invalid domain "${values.domain}": must be one of ${DOMAINS.join(', ')}`)
     }
     return { domains: [values.domain as Domain] }
 }
@@ -201,10 +201,10 @@ function buildMastra(): Mastra {
         }),
     })
 
-    // Los notify steps hacen `mastra?.getAgent('mostroSupervisor')` con guard
-    // `if (supervisor)`, pero getAgent LANZA si el agente no está registrado.
-    // Devolver undefined reproduce el camino sin supervisor: el step saltea el
-    // envío de Telegram y avanza el estado con sent = 0.
+    // The notify steps do `mastra?.getAgent('mostroSupervisor')` with an
+    // `if (supervisor)` guard, but getAgent THROWS if the agent isn't registered.
+    // Returning undefined reproduces the no-supervisor path: the step skips the
+    // Telegram send and advances the state with sent = 0.
     const originalGetAgent = mastra.getAgent.bind(mastra)
     mastra.getAgent = ((name: string) =>
         name === 'mostroSupervisor' ? undefined : originalGetAgent(name as never)) as typeof mastra.getAgent
@@ -222,9 +222,9 @@ const workflowIdByDomain: Record<Domain, string> = {
     refunds: 'refundsWorkflow',
 }
 
-// Los helpers de start solo saltean runs suspended/running: un run ya completado
-// (success) se re-ejecutaría entero. Este check lo saltea también, para que
-// correr el seed dos veces sea un no-op.
+// The start helpers only skip suspended/running runs: an already completed run
+// (success) would be re-executed in full. This check skips it too, so
+// running the seed twice is a no-op.
 async function runAlreadyDone(mastra: Mastra, domain: Domain, runId: string): Promise<boolean> {
     const existing = await mastra.getWorkflow(workflowIdByDomain[domain]).getWorkflowRunById(runId)
     if (!existing) return false
@@ -238,15 +238,15 @@ type StartResult =
 
 type StepResult = { ok: true; result: unknown } | { ok: false; reason: string }
 
-// Corta el escenario si el start no dejó un run nuevo utilizable.
-// alreadyInProgress no es error: correr el seed dos veces es válido.
+// Stops the scenario if start didn't leave a usable new run.
+// alreadyInProgress isn't an error: running the seed twice is valid.
 function reportStart(label: string, started: StartResult): boolean {
     if (started.alreadyInProgress) {
-        console.info(`[seed-runs] ${label}: ya en curso (${started.status}), salteado`)
+        console.info(`[seed-runs] ${label}: already in progress (${started.status}), skipped`)
         return false
     }
     if (!started.ok) {
-        console.error(`[seed-runs] ${label}: start falló (${started.reason})`)
+        console.error(`[seed-runs] ${label}: start failed (${started.reason})`)
         return false
     }
     return true
@@ -254,7 +254,7 @@ function reportStart(label: string, started: StartResult): boolean {
 
 function reportStep(label: string, step: string, result: StepResult): boolean {
     if (!result.ok) {
-        console.error(`[seed-runs] ${label}: ${step} falló (${result.reason})`)
+        console.error(`[seed-runs] ${label}: ${step} failed (${result.reason})`)
         return false
     }
     return true
@@ -352,8 +352,8 @@ const seedByDomain: Record<Domain, (mastra: Mastra) => Promise<void>> = {
 async function main(): Promise<void> {
     const { domains } = parseCliArgs()
 
-    // Los notify steps consultan los suscriptores por mongoose antes del guard
-    // del supervisor, así que la conexión hace falta aunque no se envíe nada.
+    // The notify steps query subscribers via mongoose before the supervisor
+    // guard, so the connection is needed even if nothing is sent.
     await mongoose.connect(appConfig.MONGODB_URI, { dbName: appConfig.MONGODB_DB_NAME })
 
     const mastra = buildMastra()
@@ -366,7 +366,7 @@ async function main(): Promise<void> {
     }
 
     console.info('[seed-runs] listo')
-    // El store de Mastra deja la conexión abierta; el script ya terminó.
+    // Mastra's store leaves the connection open; the script is done.
     process.exit(0)
 }
 

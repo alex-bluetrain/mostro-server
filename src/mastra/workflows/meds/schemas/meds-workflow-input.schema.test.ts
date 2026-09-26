@@ -12,7 +12,7 @@ describe('medsWorkflowInputSchema', () => {
         expect(result.success).toBe(false)
     })
 
-    it('rechaza requestedBy vacío', () => {
+    it('rejects an empty requestedBy', () => {
         const result = medsWorkflowInputSchema.safeParse({ medications: ['ibuprofeno'], requestedBy: '' })
         expect(result.success).toBe(false)
     })

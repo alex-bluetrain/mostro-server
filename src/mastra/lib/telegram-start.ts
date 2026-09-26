@@ -14,8 +14,8 @@ const defaultDeps: TelegramStartDeps = {
     provisionUser: (email, telegramId, name) => userRepository.upsertFromInviteRedeem(email, telegramId, name),
 }
 
-// Subconjunto estructural de SlashCommandEvent del Chat SDK: alcanza para el
-// handler y permite testearlo sin fabricar un evento completo.
+// Structural subset of the Chat SDK's SlashCommandEvent: enough for the
+// handler, and lets us test it without building a full event.
 export type TelegramStartEvent = {
     user: { userId: string; fullName: string }
     text: string
@@ -35,9 +35,9 @@ export function buildWelcomeMessage(name?: string): string {
     return name ? `${greeting} ${intro}` : `${greeting} ${intro} Para arrancar, ¿cómo te llamás?`
 }
 
-// El adapter de telegram desvía los bot_command al pipeline de slash commands
-// del Chat SDK, así que el canje de invitaciones vive acá y no en el gate de
-// onDirectMessage (que nunca ve los /start).
+// The telegram adapter diverts bot_command to the Chat SDK's slash command
+// pipeline, so invite redemption lives here and not in the
+// onDirectMessage gate (which never sees /start).
 export function createTelegramStartHandler(deps: TelegramStartDeps = defaultDeps) {
     return async (event: TelegramStartEvent): Promise<void> => {
         try {
@@ -57,8 +57,8 @@ export function createTelegramStartHandler(deps: TelegramStartDeps = defaultDeps
                 await event.channel.post(INVALID_INVITE_MESSAGE)
                 return
             }
-            // El invite ya quedó quemado en redeemInvite; si la provisión falla acá
-            // igual hay que avisarle al invitado en vez de dejarlo sin respuesta.
+            // The invite was already burned in redeemInvite; if provisioning fails here
+            // we still have to tell the invitee instead of leaving them without a reply.
             try {
                 const user = await deps.provisionUser(invite.email, telegramId, event.user.fullName.trim())
                 await event.channel.post(buildWelcomeMessage(user.name || invite.name))

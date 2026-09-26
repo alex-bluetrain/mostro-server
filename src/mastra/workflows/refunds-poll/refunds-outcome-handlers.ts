@@ -4,8 +4,8 @@ import { acknowledgeRefund, confirmRefund, receiveDeposit } from '@lib/refunds-r
 import { waitDepositResumeSchema } from '../refunds/schemas/wait-deposit-resume.schema'
 import { waitRefundConfirmationResumeSchema } from '../refunds/schemas/wait-refund-confirmation-resume.schema'
 
-// Estos labels DEBEN coincidir con los del JSON de reglas seedeado en Mongo. Un label
-// clasificado sin handler acá se marca outcome.completed sin side effects.
+// These labels MUST match the ones in the rules JSON seeded in Mongo. A label
+// classified without a handler here is marked outcome.completed with no side effects.
 const REFUNDS_ACKNOWLEDGED = 'refunds.acknowledged'
 const REFUNDS_APPROVED = 'refunds.approved'
 const REFUNDS_DEPOSITED = 'refunds.deposited'
@@ -19,7 +19,7 @@ export const refundsOutcomeHandlers: OutcomeHandlers = {
     },
     [REFUNDS_DEPOSITED]: async ({ mastra, year, data }) => {
         const { depositAmount, depositDate } = waitDepositResumeSchema.parse(data)
-        // Mismo criterio que diapers: mes del depósito, año del contexto.
+        // Same rule as diapers: month of the deposit, year from the context.
         return toHandleResult(await receiveDeposit(mastra, {
             depositAmount,
             depositDate,

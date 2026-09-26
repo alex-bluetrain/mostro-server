@@ -82,7 +82,7 @@ describe('classifier rules routes', () => {
 
         expect(response.body.domains.map((d: any) => d.domain)).toEqual(['diapers', 'meds', 'refunds'])
         expect(response.body.domains[0].activeVersion).toBe(2)
-        // Sin puntero el dominio existe igual: "no configurado" es un estado, no un error.
+        // Without a pointer the domain still exists: "not configured" is a state, not an error.
         expect(response.body.domains[1].activeVersion).toBeNull()
     })
 

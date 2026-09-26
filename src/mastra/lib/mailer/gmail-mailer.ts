@@ -13,9 +13,9 @@ export async function sendEmail({
     subject: string
     text: string
 }): Promise<void> {
-    // Flag de dev para el seed de runs: avanza los workflows sin mandar mails reales.
+    // Dev flag for the runs seed: advances workflows without sending real mails.
     if (process.env.MAILER_DRY_RUN === 'true') {
-        console.info(`[mailer] DRY RUN — no se envía: "${subject}" → ${to}`)
+        console.info(`[mailer] DRY RUN — not sending: "${subject}" → ${to}`)
         return
     }
 

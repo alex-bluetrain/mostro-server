@@ -27,8 +27,8 @@ describe('recentMonths', () => {
     })
 })
 
-// El overview pide un run por dominio y por mes: este doble responde sólo a los
-// run ids que le cargamos y devuelve null para el resto, como haría Mastra.
+// The overview asks for one run per domain per month: this double only answers the
+// run ids we load into it and returns null for the rest, like Mastra would.
 function mastraWith(runs: Record<string, { status: string; initialState: Record<string, unknown> }>) {
     return {
         getWorkflow: vi.fn(() => ({

@@ -29,8 +29,8 @@ describe('createResolveResourceId', () => {
     await expect(resolve(makeArgs('999'))).rejects.toThrow(/999/);
   });
 
-  // Lo que hace que Telegram y Discord compartan memoria: dos plataformas, dos
-  // ids distintos, un mismo resourceId canónico.
+  // What makes Telegram and Discord share memory: two platforms, two
+  // different ids, one canonical resourceId.
   it('resolves the same person to one resourceId across channels', async () => {
     const resolve = createResolveResourceId(
       makeDeps({

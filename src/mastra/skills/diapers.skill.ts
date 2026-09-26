@@ -1,7 +1,7 @@
 import { createSkill } from '@mastra/core/skills'
 
-// Instrucciones que antes vivían en el diapers agent (hoy colapsado en el
-// loop único del supervisor). Las tools viven en el catálogo.
+// Instructions that used to live in the diapers agent (now collapsed into the
+// supervisor's single loop). The tools live in the catalog.
 export const diapersSkill = createSkill({
     name: 'diapers',
     description:

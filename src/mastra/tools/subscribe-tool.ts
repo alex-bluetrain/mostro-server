@@ -16,8 +16,8 @@ export const subscribeTool = createTool({
             return { subscribed: false }
         }
 
-        // Prende la preferencia sobre un user existente: si el email no está
-        // invitado no hay a quién suscribir, y decirle que sí sería mentira.
+        // Turns the preference on for an existing user: if the email isn't
+        // invited there's no one to subscribe, and saying yes would be a lie.
         const updated = await userRepository.setNotifications(email, true)
         return { subscribed: updated }
     },

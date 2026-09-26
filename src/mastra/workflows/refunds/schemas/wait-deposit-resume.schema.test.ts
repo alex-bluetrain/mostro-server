@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { waitDepositResumeSchema } from './wait-deposit-resume.schema'
 
 describe('waitDepositResumeSchema', () => {
-    it('acepta un depósito con fecha en formato YYYY-MM-DD', () => {
+    it('accepts a deposit with a date in YYYY-MM-DD format', () => {
         const result = waitDepositResumeSchema.safeParse({
             depositAmount: 500,
             depositDate: '2026-08-15',
@@ -10,7 +10,7 @@ describe('waitDepositResumeSchema', () => {
         expect(result.success).toBe(true)
     })
 
-    it('rechaza una fecha con formato DD/MM/YYYY', () => {
+    it('rejects a date in DD/MM/YYYY format', () => {
         const result = waitDepositResumeSchema.safeParse({
             depositAmount: 500,
             depositDate: '15/08/2026',
@@ -18,7 +18,7 @@ describe('waitDepositResumeSchema', () => {
         expect(result.success).toBe(false)
     })
 
-    it('rechaza una fecha con hora incluida', () => {
+    it('rejects a date that includes a time', () => {
         const result = waitDepositResumeSchema.safeParse({
             depositAmount: 500,
             depositDate: '2026-08-15T10:00:00Z',
@@ -26,7 +26,7 @@ describe('waitDepositResumeSchema', () => {
         expect(result.success).toBe(false)
     })
 
-    it('rechaza un depósito sin depositAmount', () => {
+    it('rejects a deposit without depositAmount', () => {
         const result = waitDepositResumeSchema.safeParse({
             depositDate: '2026-08-15',
         })

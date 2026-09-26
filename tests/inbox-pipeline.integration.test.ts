@@ -56,7 +56,7 @@ describe.skipIf(!hasKey)('InboxManager + classifyMail (integración)', () => {
         expect(result.isDefault).toBe(expectedLabel === 'clasificado-otro')
     }, 60_000)
 
-    it('traduce la query en lenguaje natural y agrega las exclusiones estáticas', async () => {
+    it('translates the natural-language query and adds the static exclusions', async () => {
         const { payload } = await emlToGmailMessage(fixtureUrl('confirmacion-entrega.eml'))
         const { gmail, list } = buildGmail(payload)
         const manager = new InboxManager({

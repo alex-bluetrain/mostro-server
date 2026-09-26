@@ -8,8 +8,8 @@ import { meRoute } from './me.route'
 import { getUserByResourceId } from '@business/identity'
 import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
 
-// El handler sólo usa `get('requestContext')` y `json()`, así que el contexto
-// de Hono se puede falsear con esas dos cosas y el test no arranca un server.
+// The handler only uses `get('requestContext')` and `json()`, so the Hono context
+// can be faked with those two things and the test doesn't start a server.
 function run(resourceId?: string): Promise<{ body: unknown; status?: number }> {
     const c = {
         get: (key: string) =>

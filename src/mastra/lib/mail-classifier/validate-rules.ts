@@ -1,9 +1,9 @@
 import type { ClassificationRules } from './classification-rules.type'
 
-// Validación de shape mínimo: el detalle semántico (conditions, schemas) es
-// responsabilidad de quien escribe el JSON; acá solo se evita publicar basura
-// estructural. Lanza Error para que cada caller decida qué hacer (el script
-// aborta, el bootstrap del boot loguea y sigue).
+// Minimal shape validation: the semantic detail (conditions, schemas) is
+// the responsibility of whoever writes the JSON; this only avoids publishing structural
+// garbage. Throws Error so each caller decides what to do (the script
+// aborts, the boot bootstrap logs and continues).
 export function validateRules(raw: unknown): ClassificationRules {
     const invalid = (message: string): never => {
         throw new Error(message)

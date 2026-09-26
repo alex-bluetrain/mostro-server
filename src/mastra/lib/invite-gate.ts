@@ -30,8 +30,8 @@ export async function assertInvitedAndSyncName(
         try {
             await deps.setUserName(user.email, user.name)
         } catch (err) {
-            // Cosmético: nunca bloquear el login de un invitado por no poder
-            // sincronizar el nombre desde el perfil de Google.
+            // Cosmetic: never block an invitee's login because we couldn't
+            // sync the name from the Google profile.
             appLogger.warn('[invite-gate] failed to sync name from google profile', { err })
         }
     }

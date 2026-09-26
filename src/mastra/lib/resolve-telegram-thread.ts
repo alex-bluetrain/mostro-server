@@ -1,8 +1,8 @@
 import { userRepository } from '@business/repositories'
 import type { IUser } from '@business'
 
-// Tipos estructurales mínimos sobre el storage de Mastra para que los tests
-// puedan stubear sin arrastrar la instancia completa.
+// Minimal structural types over Mastra's storage so tests
+// can stub without dragging in the full instance.
 export type MemoryStoreLike = {
     listThreads: (args: {
         filter: { metadata: Record<string, string> }
@@ -24,12 +24,12 @@ const defaultDeps: ResolveTelegramThreadDeps = {
     getUserByEmail: email => userRepository.findByEmail(email),
 }
 
-// Los suscriptores guardan solo el email canónico; el thread de entrega se
-// resuelve acá al momento del envío. Un DM de Telegram tiene id externo
-// determinístico `telegram:<telegramId>` y Mastra lo persiste en la metadata
-// del thread interno (channel_externalThreadId) — el mismo lookup que hace el
-// framework para los mensajes entrantes. Null = no hay dónde entregar (el
-// usuario nunca habló con el bot): el caller loguea y saltea.
+// Subscribers store only the canonical email; the delivery thread is
+// resolved here at send time. A Telegram DM has a deterministic external id
+// `telegram:<telegramId>` and Mastra persists it in the internal thread's
+// metadata (channel_externalThreadId) — the same lookup the framework does
+// for incoming messages. Null = nowhere to deliver (the
+// user never talked to the bot): the caller logs and skips.
 export function createResolveTelegramThread(deps: ResolveTelegramThreadDeps = defaultDeps) {
     return async (
         mastra: MastraLike | undefined,

@@ -7,8 +7,8 @@ export const OVERVIEW_DOMAINS = ['diapers', 'meds', 'refunds'] as const
 
 export type OverviewDomain = (typeof OVERVIEW_DOMAINS)[number]
 
-// El run id de cada flow mensual es determinista, así que el overview no lista runs:
-// pide los meses que le interesan. Un mes sin pedido simplemente no está.
+// Each monthly flow's run id is deterministic, so the overview doesn't list runs:
+// it asks for the months it cares about. A month with no order simply isn't there.
 const runIdByDomain: Record<OverviewDomain, (year: number, month: number) => string> = {
     diapers: getDiapersRunId,
     meds: getMedsRunId,
@@ -26,14 +26,14 @@ export type OverviewRun = {
     year: number
     month: number
     runId: string
-    // Estado del run en Mastra (running, suspended, success, failed): dice si el flow
-    // está vivo esperando un mail o si terminó.
+    // Run status in Mastra (running, suspended, success, failed): says whether the flow
+    // is alive waiting for a mail or has finished.
     runStatus: string
-    // Estado de negocio del dominio (diapers_requested, deposit_confirmed, ...).
+    // Domain business status (diapers_requested, deposit_confirmed, ...).
     state: Record<string, unknown>
 }
 
-// Los N meses hasta `year`/`month` inclusive, del más nuevo al más viejo.
+// The N months up to `year`/`month` inclusive, newest to oldest.
 export function recentMonths(year: number, month: number, count: number) {
     return Array.from({ length: count }, (_, i) => {
         const offset = month - 1 - i

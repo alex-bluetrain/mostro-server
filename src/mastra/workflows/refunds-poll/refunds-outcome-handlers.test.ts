@@ -12,7 +12,7 @@ import { refundsOutcomeHandlers } from './refunds-outcome-handlers'
 const mastra = {} as never
 
 describe('refundsOutcomeHandlers', () => {
-    it('refunds.deposited toma el año del contexto y el mes de depositDate', async () => {
+    it('refunds.deposited takes the year from the context and the month from depositDate', async () => {
         const data = { depositAmount: 15000, depositDate: '2025-01-16' }
 
         const result = await refundsOutcomeHandlers['refunds.deposited']({
@@ -32,7 +32,7 @@ describe('refundsOutcomeHandlers', () => {
         })
     })
 
-    it('refunds.approved usa el mes del contexto (sin fecha extraída)', async () => {
+    it('refunds.approved uses the month from the context (no extracted date)', async () => {
         const data = { refundReference: 'REF-123' }
 
         const result = await refundsOutcomeHandlers['refunds.approved']({

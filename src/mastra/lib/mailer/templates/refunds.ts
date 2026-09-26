@@ -23,7 +23,7 @@ export function refundRequestEmail({
         `Monto: ${amount}`,
     ]
 
-    // Los campos opcionales se omiten: una línea "Motivo: undefined" es peor que no tenerla.
+    // Optional fields are omitted: a "Motivo: undefined" line is worse than none.
     if (reason) lines.push(`Motivo: ${reason}`)
 
     lines.push(`Solicitado por: ${requestedBy}`, '', 'Gracias.')

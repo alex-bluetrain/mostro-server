@@ -32,7 +32,7 @@ describe('ensureClassifierSeed', () => {
         config.CLASSIFIER_RULES_REFUNDS = undefined
     })
 
-    it('con puntero activo no publica nada, aunque haya template en env', async () => {
+    it('with an active pointer publishes nothing, even if there is a template in env', async () => {
         hasActivePointer.mockImplementation(async () => true)
         config.CLASSIFIER_RULES_DIAPERS = validRules
 
@@ -41,7 +41,7 @@ describe('ensureClassifierSeed', () => {
         expect(publishSnapshot).not.toHaveBeenCalled()
     })
 
-    it('sin puntero y con template válido publica el snapshot inicial', async () => {
+    it('without a pointer and with a valid template publishes the initial snapshot', async () => {
         config.CLASSIFIER_RULES_DIAPERS = validRules
 
         await ensureClassifierSeed()
@@ -54,7 +54,7 @@ describe('ensureClassifierSeed', () => {
         })
     })
 
-    it('sin puntero y sin template avisa por error y no tumba el boot', async () => {
+    it('without a pointer and without a template warns via error and does not crash boot', async () => {
         await expect(ensureClassifierSeed()).resolves.toBeUndefined()
 
         expect(publishSnapshot).not.toHaveBeenCalled()
@@ -62,7 +62,7 @@ describe('ensureClassifierSeed', () => {
         expect(appLogger.error.mock.calls[0]?.[0]).toContain('CLASSIFIER_RULES_DIAPERS')
     })
 
-    it('template vacío se trata como ausente', async () => {
+    it('an empty template is treated as absent', async () => {
         config.CLASSIFIER_RULES_MEDS = '   '
 
         await ensureClassifierSeed()
@@ -71,7 +71,7 @@ describe('ensureClassifierSeed', () => {
         expect(appLogger.error.mock.calls[1]?.[0]).toContain('CLASSIFIER_RULES_MEDS')
     })
 
-    it('template inválido no publica y no lanza, y no frena los otros dominios', async () => {
+    it('an invalid template does not publish or throw, and does not stop the other domains', async () => {
         config.CLASSIFIER_RULES_DIAPERS = '{ no soy json'
         config.CLASSIFIER_RULES_MEDS = JSON.stringify({ outcomes: [] })
         config.CLASSIFIER_RULES_REFUNDS = validRules

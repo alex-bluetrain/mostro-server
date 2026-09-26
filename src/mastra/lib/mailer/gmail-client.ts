@@ -3,8 +3,8 @@ import { appConfig } from '@config/app.config'
 
 let client: ReturnType<typeof gmail> | undefined
 
-// Compartido entre el mailer (enviar) y el reader (leer y etiquetar): un solo
-// refresh token, un solo cliente. El SDK renueva el access token solo.
+// Shared between the mailer (send) and the reader (read and label): a single
+// refresh token, a single client. The SDK renews the access token on its own.
 export function getGmailClient() {
     if (!client) {
         const oauth2 = new auth.OAuth2(appConfig.GMAIL_MAILER_CLIENT_ID, appConfig.GMAIL_MAILER_CLIENT_SECRET)

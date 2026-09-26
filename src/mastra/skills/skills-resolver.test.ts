@@ -14,7 +14,7 @@ beforeEach(() => {
 })
 
 describe('supervisorSkillsResolver', () => {
-    it('expone invitaciones solo a admins (más las skills comunes)', async () => {
+    it('exposes invitaciones only to admins (plus the common skills)', async () => {
         isRequestAdminMock.mockResolvedValue(true)
 
         const skills = await supervisorSkillsResolver({ requestContext: new RequestContext() })
@@ -23,7 +23,7 @@ describe('supervisorSkillsResolver', () => {
         expect(skills).toContain(weatherSkill)
     })
 
-    it('oculta las skills gateadas a no-admins (y a lecturas de metadata sin identidad)', async () => {
+    it('hides gated skills from non-admins (and from metadata reads without identity)', async () => {
         isRequestAdminMock.mockResolvedValue(false)
 
         const skills = await supervisorSkillsResolver({ requestContext: new RequestContext() })

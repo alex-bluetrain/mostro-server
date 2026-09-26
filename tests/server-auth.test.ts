@@ -16,21 +16,21 @@ describe('createServerAuth', () => {
         config.GOOGLE_CLIENT_ID = 'client-id'
     })
 
-    it('con ambos secrets combina google y studio auth', () => {
+    it('with both secrets combines google and studio auth', () => {
         const auth = createServerAuth() as any
         expect(auth.constructor.name).toBe('CompositeAuth')
-        // El webhook de Telegram debe seguir publico: CompositeAuth une los
-        // `public` de todos los providers, y si se pierde el bot deja de andar.
+        // The Telegram webhook must stay public: CompositeAuth merges every
+        // provider's `public`, and if it's lost the bot stops working.
         expect(auth.public).toHaveLength(2)
     })
 
-    it('solo con STUDIO_API_KEY usa SimpleAuth, exento del gate de licencia EE', () => {
+    it('with only STUDIO_API_KEY uses SimpleAuth, exempt from the EE license gate', () => {
         config.GOOGLE_CLIENT_ID = undefined
         const auth = createServerAuth() as any
         expect(auth.isSimpleAuth).toBe(true)
     })
 
-    it('sin ningun secret falla en el boot en vez de dejar el server abierto', () => {
+    it('with no secret at all fails at boot instead of leaving the server open', () => {
         config.STUDIO_API_KEY = undefined
         config.GOOGLE_CLIENT_ID = undefined
         expect(() => createServerAuth()).toThrow(/no auth provider/)

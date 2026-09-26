@@ -14,8 +14,8 @@ export const listInvitesRoute = registerApiRoute('/invites', {
         const now = nowUnix()
         const invites = await inviteRepository.list()
 
-        // El code sale en el link y no en un campo suelto: la pantalla lo muestra
-        // para reenviar, no para mirarlo.
+        // The code goes out in the link, not as a loose field: the screen shows it
+        // for resending, not for looking at.
         return c.json({
             invites: invites.map(invite => ({
                 email: invite.email,

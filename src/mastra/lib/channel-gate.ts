@@ -3,13 +3,13 @@ import { findChannelUser, defaultChannelUserDeps, type ChannelUserDeps } from '.
 
 export type ChannelGateDeps = ChannelUserDeps
 
-// Gate de acceso: corre antes de que el mensaje llegue al agente, así un
-// desconocido no gasta tokens ni toca memoria. Cubre todos los adapters: la
-// plataforma sale de thread.adapter.name, porque los handlers se registran una
-// sola vez para todo el canal y no reciben el platform por parámetro.
+// Access gate: runs before the message reaches the agent, so an
+// unknown user spends no tokens and doesn't touch memory. Covers every adapter: the
+// platform comes from thread.adapter.name, because handlers are registered once
+// for the whole channel and don't get the platform as a parameter.
 //
-// El canje de invitaciones vive en telegram-start.ts: los /start llegan como
-// slash command, nunca como mensaje, así que acá no hay nada que parsear.
+// Invite redemption lives in telegram-start.ts: /start arrives as a
+// slash command, never as a message, so there's nothing to parse here.
 export function createChannelGate(deps: ChannelGateDeps = defaultChannelUserDeps): ChannelHandler {
     return async (thread, message, defaultHandler) => {
         const known = await findChannelUser(deps, thread.adapter.name, message.author.userId)

@@ -3,10 +3,10 @@ import { createCustomTransport } from '@mastra/core/logger'
 import { PinoLogger } from '@mastra/loggers'
 import { appConfig } from '@config/app.config'
 
-// Logger del server. Si AXIOM_TOKEN y AXIOM_DATASET están seteadas, además de
-// stdout los logs se envían a Axiom; si falta alguna, queda igual que antes.
-// PinoLogger arma un multistream con los transports + el pretty stream, así que
-// agregar Axiom nunca saca los logs de la consola.
+// Server logger. If AXIOM_TOKEN and AXIOM_DATASET are set, logs go to Axiom
+// in addition to stdout; if either is missing, nothing changes.
+// PinoLogger builds a multistream with the transports + the pretty stream, so
+// adding Axiom never takes the logs off the console.
 async function createAppLogger(): Promise<PinoLogger> {
     const { AXIOM_TOKEN: token, AXIOM_DATASET: dataset } = appConfig
 
@@ -23,11 +23,11 @@ async function createAppLogger(): Promise<PinoLogger> {
     })
 }
 
-// El logger del boot (conexión a Mongo, seeds, ngrok, registro del /start) tiene
-// que existir antes que la instancia de Mastra, así que se arma acá y se le pasa
-// a Mastra ya construido. Dentro de un step o un tool usá mastra.getLogger(): ese
-// viene envuelto en un DualLogger que correlaciona cada línea con el span de la
-// corrida, cosa que este no puede hacer.
+// The boot logger (Mongo connection, seeds, ngrok, /start registration) has
+// to exist before the Mastra instance, so it's built here and handed
+// to Mastra already constructed. Inside a step or tool use mastra.getLogger(): that one
+// is wrapped in a DualLogger that correlates each line with the run's span,
+// which this one can't do.
 export const appLogger = await createAppLogger()
 
 if (!appConfig.AXIOM_TOKEN || !appConfig.AXIOM_DATASET) {

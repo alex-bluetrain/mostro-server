@@ -1,20 +1,20 @@
-// Script one-time: obtiene el refresh token de la cuenta de Gmail de Mostro.
-// Uso: pnpm run gmail:auth
+// One-time script: gets the refresh token for Mostro's Gmail account.
+// Usage: pnpm run gmail:auth
 import http from 'node:http'
 import { auth } from '@googleapis/gmail'
 
-// Puerto propio, no el de Mastra (PORT/4111): esto corre como proceso aparte y chocaría con el
-// server si estuviera levantado. El callback tampoco puede ser una ruta de Mastra, porque
-// GMAIL_MAILER_REFRESH_TOKEN es requerido para arrancar el server: haría falta el token para
-// levantar lo que te da el token. El número es arbitrario; lo único que importa es que coincida
-// con el redirect URI registrado en el cliente OAuth.
+// Own port, not Mastra's (PORT/4111): this runs as a separate process and would clash with the
+// server if it were up. The callback can't be a Mastra route either, because
+// GMAIL_MAILER_REFRESH_TOKEN is required to boot the server: you'd need the token to
+// start the thing that gives you the token. The number is arbitrary; it only has to match
+// the redirect URI registered on the OAuth client.
 const PORT = 53682
-// 127.0.0.1 y no localhost: en Windows localhost resuelve primero a ::1, y el server escucha
-// solo en IPv4, así que el navegador se comería un connection refused al volver del consent.
+// 127.0.0.1 and not localhost: on Windows localhost resolves to ::1 first, and the server listens
+// on IPv4 only, so the browser would hit connection refused when coming back from consent.
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/oauth2callback`
-// modify habilita leer y etiquetar además de enviar, que es lo que necesita el poller.
-// Gmail no ofrece scopes acotados por label: esto alcanza toda la casilla, y la contención
-// queda en el código (query fijo por remitente, funciones de resume predefinidas).
+// modify allows reading and labelling on top of sending, which is what the poller needs.
+// Gmail has no label-scoped scopes: this covers the whole mailbox, and containment
+// lives in the code (fixed per-sender query, predefined resume functions).
 const SCOPES = [
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/gmail.send',
@@ -24,14 +24,14 @@ const clientId = process.env.GMAIL_MAILER_CLIENT_ID
 const clientSecret = process.env.GMAIL_MAILER_CLIENT_SECRET
 
 if (!clientId || !clientSecret) {
-    console.error('Faltan GMAIL_MAILER_CLIENT_ID y/o GMAIL_MAILER_CLIENT_SECRET en el .env')
+    console.error('Missing GMAIL_MAILER_CLIENT_ID and/or GMAIL_MAILER_CLIENT_SECRET in .env')
     process.exit(1)
 }
 
 const oauth2 = new auth.OAuth2(clientId, clientSecret, REDIRECT_URI)
 
-// prompt: 'consent' fuerza que Google devuelva un refresh token aunque la cuenta
-// ya haya autorizado la app antes.
+// prompt: 'consent' forces Google to return a refresh token even if the account
+// already authorized the app before.
 const authUrl = oauth2.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -55,9 +55,9 @@ const server = http.createServer(async (req, res) => {
         res.end('Faltó el parámetro code.')
 
         if (error) {
-            console.error(`\nGoogle rechazó la solicitud: ${error}`)
+            console.error(`\nGoogle rejected the request: ${error}`)
         } else {
-            console.error('\nNo se recibió código de autorización.')
+            console.error('\nNo authorization code received.')
         }
         server.close()
         return
@@ -69,11 +69,11 @@ const server = http.createServer(async (req, res) => {
         res.end('Listo. Volvé a la terminal.')
 
         if (tokens.refresh_token) {
-            console.log('\nPegá esto en tu .env:\n')
+            console.log('\nPaste this into your .env:\n')
             console.log(`GMAIL_MAILER_REFRESH_TOKEN=${tokens.refresh_token}`)
         } else {
-            console.error('\nGoogle no devolvió refresh token. Revocá el acceso de la app en')
-            console.error('https://myaccount.google.com/permissions y volvé a correr el script.')
+            console.error('\nGoogle returned no refresh token. Revoke the app\'s access at')
+            console.error('https://myaccount.google.com/permissions and run the script again.')
         }
     } catch (error) {
         res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
@@ -84,9 +84,9 @@ const server = http.createServer(async (req, res) => {
     }
 })
 
-// Solo loopback: el código de autorización no debe poder llegar por la LAN.
+// Loopback only: the authorization code must not be reachable over the LAN.
 server.listen(PORT, '127.0.0.1', () => {
-    console.log('Abrí esta URL con la cuenta de Gmail de Mostro:\n')
+    console.log('Open this URL with Mostro\'s Gmail account:\n')
     console.log(authUrl)
     console.log('\nEsperando el callback...')
 })

@@ -5,9 +5,9 @@ export const CLASSIFIER_DOMAINS = ['diapers', 'meds', 'refunds'] as const;
 
 export type ClassifierDomain = (typeof CLASSIFIER_DOMAINS)[number];
 
-// Snapshot inmutable y versionado de las reglas de clasificación de un dominio.
-// Nunca se edita ni se borra: publicar cambios = insertar una versión nueva y
-// mover el puntero (ver classifier.model.ts).
+// Immutable, versioned snapshot of a domain's classification rules.
+// Never edited or deleted: publishing changes = inserting a new version and
+// moving the pointer (see classifier.model.ts).
 export interface IClassifierSnapshot {
   domain: ClassifierDomain;
   version: number;

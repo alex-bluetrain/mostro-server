@@ -13,8 +13,8 @@ export const refundsStateSchema = z.object({
         'deposit_confirmed',
         'refunds_notification_sent',
     ]).default('idle'),
-    // El mes del pedido: lo fija quien arranca el run y queda en el estado, así los steps no
-    // tienen que parsearlo del run id.
+    // The order's month: set by whoever starts the run and kept in state, so steps don't
+    // have to parse it from the run id.
     year: z.number().int(),
     month: z.number().int().min(1).max(12),
     amount: z.number().optional(),

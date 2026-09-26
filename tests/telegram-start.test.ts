@@ -27,19 +27,19 @@ function makeEvent(senderId: string, text: string, fullName = 'Nueva Persona') {
 }
 
 describe('buildWelcomeMessage', () => {
-    it('con nombre saluda por nombre y no pregunta el nombre', () => {
+    it('with a name greets by name and does not ask for the name', () => {
         const msg = buildWelcomeMessage('Nueva')
         expect(msg).toContain('Nueva')
         expect(msg).not.toContain('¿cómo te llamás?')
     })
 
-    it('sin nombre pregunta el nombre', () => {
+    it('without a name asks for the name', () => {
         expect(buildWelcomeMessage()).toContain('¿cómo te llamás?')
     })
 })
 
 describe('createTelegramStartHandler', () => {
-    it('usuario conocido recibe saludo de regreso sin canjear nada', async () => {
+    it('a known user gets a welcome-back greeting without redeeming anything', async () => {
         const deps = makeDeps({ getUserByTelegramId: vi.fn(async () => member) })
         const { event, post } = makeEvent('111', '')
         await createTelegramStartHandler(deps)(event)
@@ -47,7 +47,7 @@ describe('createTelegramStartHandler', () => {
         expect(deps.redeemInvite).not.toHaveBeenCalled()
     })
 
-    it('desconocido con código válido canjea, provisiona y recibe la bienvenida', async () => {
+    it('an unknown user with a valid code redeems, provisions and gets the welcome', async () => {
         const deps = makeDeps({ redeemInvite: vi.fn(async () => validInvite) })
         const { event, post } = makeEvent('222', 'abc123XYZ_-9')
         await createTelegramStartHandler(deps)(event)
@@ -56,7 +56,7 @@ describe('createTelegramStartHandler', () => {
         expect(post).toHaveBeenCalledExactlyOnceWith(buildWelcomeMessage('Nueva'))
     })
 
-    it('desconocido con código inválido/vencido/usado recibe el mensaje genérico', async () => {
+    it('an unknown user with an invalid/expired/used code gets the generic message', async () => {
         const deps = makeDeps()
         const { event, post } = makeEvent('222', 'abc123XYZ_-9')
         await createTelegramStartHandler(deps)(event)
@@ -64,7 +64,7 @@ describe('createTelegramStartHandler', () => {
         expect(post).toHaveBeenCalledExactlyOnceWith(INVALID_INVITE_MESSAGE)
     })
 
-    it('desconocido sin código recibe el mensaje genérico sin intentar canje', async () => {
+    it('an unknown user without a code gets the generic message without trying to redeem', async () => {
         const deps = makeDeps()
         const { event, post } = makeEvent('222', '   ')
         await createTelegramStartHandler(deps)(event)
@@ -72,7 +72,7 @@ describe('createTelegramStartHandler', () => {
         expect(post).toHaveBeenCalledExactlyOnceWith(INVALID_INVITE_MESSAGE)
     })
 
-    it('un error de las deps no revienta el handler', async () => {
+    it('a dependency error does not crash the handler', async () => {
         const deps = makeDeps({
             getUserByTelegramId: vi.fn(async () => {
                 throw new Error('mongo down')

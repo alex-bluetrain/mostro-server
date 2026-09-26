@@ -1,12 +1,12 @@
-// Convención única de ids de thread: `<email>:<canal>`.
+// Single thread-id convention: `<email>:<channel>`.
 //
-// El email ya es el resourceId canónico (ver resolve-resource-id.ts), así que
-// derivar el thread de él deja un id computable desde cualquier lado: no hace
-// falta buscar el thread por metadata para saber a dónde entregar algo.
+// The email is already the canonical resourceId (see resolve-resource-id.ts), so
+// deriving the thread from it gives an id computable from anywhere: no need
+// to look up the thread by metadata to know where to deliver something.
 //
-// Un thread por canal, no uno global: la conversación de Telegram y la de la
-// web quedan separadas, pero comparten resourceId, así que la memoria de
-// recurso (quién es el usuario, qué pidió) sigue siendo común a ambas.
+// One thread per channel, not a global one: the Telegram and web conversations
+// stay separate, but share the resourceId, so resource memory
+// (who the user is, what they asked for) stays common to both.
 export type ThreadChannel = 'telegram' | 'web'
 
 export function channelThreadId(email: string, channel: ThreadChannel): string {

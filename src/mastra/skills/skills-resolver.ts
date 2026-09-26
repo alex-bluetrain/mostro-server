@@ -6,10 +6,10 @@ import { diapersSkill } from './diapers.skill'
 import { medsSkill } from './meds.skill'
 import { refundsSkill } from './refunds.skill'
 
-// Resolver dinámico de skills del supervisor. Corre una vez por
-// RequestContext, pero también en lecturas de metadata (listSkills, endpoints
-// del server) donde no hay span de tracing ni identidad: en ese caso
-// isRequestAdmin devuelve false y las skills gateadas simplemente no aparecen.
+// Dynamic resolver for the supervisor's skills. Runs once per
+// RequestContext, but also on metadata reads (listSkills, server
+// endpoints) where there's no tracing span or identity: in that case
+// isRequestAdmin returns false and gated skills simply don't show up.
 export const supervisorSkillsResolver: AgentSkillsResolver = async ({ requestContext }) => {
     const skills: SkillInput[] = [weatherSkill, diapersSkill, medsSkill, refundsSkill]
     if (await isRequestAdmin(requestContext)) skills.push(invitacionesSkill)
