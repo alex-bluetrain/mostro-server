@@ -322,7 +322,7 @@ src/
 | `pnpm typecheck`              | Type-check (`tsc --noEmit`)                                                                         |
 | `pnpm gmail:auth`             | Get the Gmail refresh token (one-time)                                                              |
 | `pnpm seed:classifier`        | Publish a classification-rules snapshot to MongoDB (`-- --domain --file --author --changelog`)      |
-| `pnpm seed:runs`              | Dev only: seed fake past diapers/meds/refunds workflow runs (mailer in dry-run); `-- --domain <d>` for one |
+| `pnpm seed:runs`              | Dev only: seed two years of fake diapers/meds/refunds workflow runs (mailer in dry-run); `-- --domain <d>` for one |
 | `pnpm generate:openui-prompt` | Regenerate `src/mastra/generated/openui-system-prompt.ts` after upgrading the OpenUI library        |
 
 ## Deployment

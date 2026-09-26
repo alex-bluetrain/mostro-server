@@ -1,5 +1,6 @@
-// Generates diapers/meds/refunds runs in past months using the real workflow
-// engine, to test web reporting without going through the mail cycle.
+// Generates two years of diapers/meds/refunds runs (the 24 months before the
+// current one) using the real workflow engine, to test web reporting without
+// going through the mail cycle.
 // It doesn't insert snapshots by hand: it runs start + resumes from the *-run.ts helpers,
 // leaving each run in whatever intermediate state the scenario asks for.
 //
@@ -31,104 +32,6 @@ process.env.MAILER_DRY_RUN = 'true'
 
 const DOMAINS = ['diapers', 'meds', 'refunds'] as const
 type Domain = (typeof DOMAINS)[number]
-
-// ── Scenarios (editable) ────────────────────────────────────────────────────
-// Always fictitious data: the repo is public.
-
-type DiapersScenario = {
-    year: number
-    month: number
-    size: 'M' | 'G' | 'XG'
-    requestedBy: string
-    confirm?: { deliveryDate: string; deliveryAddress: string; quantity: number }
-}
-
-// A full year: 2025-08 → 2026-07 (the current month, 2026-08, has the real
-// order and is left alone). Mostly completed, with a few intermediate states.
-const ADDRESS = 'Calle Falsa 123'
-
-const diapersScenarios: DiapersScenario[] = [
-    { year: 2025, month: 8, size: 'M', requestedBy: 'Ana', confirm: { deliveryDate: '2025-08-11', deliveryAddress: ADDRESS, quantity: 60 } },
-    { year: 2025, month: 9, size: 'M', requestedBy: 'Alex', confirm: { deliveryDate: '2025-09-09', deliveryAddress: ADDRESS, quantity: 60 } },
-    { year: 2025, month: 10, size: 'M', requestedBy: 'Ana', confirm: { deliveryDate: '2025-10-14', deliveryAddress: ADDRESS, quantity: 70 } },
-    { year: 2025, month: 11, size: 'G', requestedBy: 'Ana', confirm: { deliveryDate: '2025-11-12', deliveryAddress: ADDRESS, quantity: 70 } },
-    { year: 2025, month: 12, size: 'G', requestedBy: 'Alex', confirm: { deliveryDate: '2025-12-10', deliveryAddress: ADDRESS, quantity: 90 } },
-    { year: 2026, month: 1, size: 'G', requestedBy: 'Ana', confirm: { deliveryDate: '2026-01-13', deliveryAddress: ADDRESS, quantity: 80 } },
-    { year: 2026, month: 2, size: 'G', requestedBy: 'Alex', confirm: { deliveryDate: '2026-02-11', deliveryAddress: ADDRESS, quantity: 80 } },
-    { year: 2026, month: 3, size: 'G', requestedBy: 'Ana', confirm: { deliveryDate: '2026-03-12', deliveryAddress: ADDRESS, quantity: 100 } },
-    { year: 2026, month: 4, size: 'XG', requestedBy: 'Alex', confirm: { deliveryDate: '2026-04-14', deliveryAddress: ADDRESS, quantity: 90 } },
-    // Suspendido esperando al proveedor (diapers_requested)
-    { year: 2026, month: 5, size: 'M', requestedBy: 'Ana' },
-    // Completo: confirmado + notificado (diapers_notification_sent)
-    { year: 2026, month: 6, size: 'G', requestedBy: 'Alex', confirm: { deliveryDate: '2026-06-12', deliveryAddress: ADDRESS, quantity: 80 } },
-    { year: 2026, month: 7, size: 'XG', requestedBy: 'Ana', confirm: { deliveryDate: '2026-07-15', deliveryAddress: ADDRESS, quantity: 110 } },
-]
-
-type MedsScenario = {
-    year: number
-    month: number
-    medications: string[]
-    requestedBy: string
-    ack?: true
-    confirm?: { deliveryDate: string; deliveryAddress: string }
-}
-
-const medsScenarios: MedsScenario[] = [
-    { year: 2025, month: 8, medications: ['Enalapril 10', 'Aspirina 100'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2025-08-08', deliveryAddress: ADDRESS } },
-    { year: 2025, month: 9, medications: ['Enalapril 10', 'Aspirina 100'], requestedBy: 'Alex', ack: true, confirm: { deliveryDate: '2025-09-10', deliveryAddress: ADDRESS } },
-    { year: 2025, month: 10, medications: ['Enalapril 10', 'Omeprazol 20'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2025-10-09', deliveryAddress: ADDRESS } },
-    { year: 2025, month: 11, medications: ['Enalapril 10', 'Omeprazol 20'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2025-11-11', deliveryAddress: ADDRESS } },
-    { year: 2025, month: 12, medications: ['Enalapril 10', 'Ibuprofeno 600'], requestedBy: 'Alex', ack: true, confirm: { deliveryDate: '2025-12-11', deliveryAddress: ADDRESS } },
-    { year: 2026, month: 1, medications: ['Enalapril 10', 'Aspirina 100'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2026-01-09', deliveryAddress: ADDRESS } },
-    { year: 2026, month: 2, medications: ['Enalapril 10', 'Aspirina 100'], requestedBy: 'Alex', ack: true, confirm: { deliveryDate: '2026-02-10', deliveryAddress: ADDRESS } },
-    { year: 2026, month: 3, medications: ['Enalapril 10', 'Levotiroxina 50'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2026-03-11', deliveryAddress: ADDRESS } },
-    { year: 2026, month: 4, medications: ['Enalapril 10', 'Levotiroxina 50'], requestedBy: 'Alex', ack: true, confirm: { deliveryDate: '2026-04-09', deliveryAddress: ADDRESS } },
-    // Suspendido esperando acuse (meds_requested)
-    { year: 2026, month: 5, medications: ['Ibuprofeno 600'], requestedBy: 'Ana' },
-    // Acknowledged, waiting for delivery confirmation (ack_notified)
-    { year: 2026, month: 6, medications: ['Amoxicilina 500'], requestedBy: 'Alex', ack: true },
-    // Completo (meds_notification_sent)
-    { year: 2026, month: 7, medications: ['Paracetamol 1g'], requestedBy: 'Ana', ack: true, confirm: { deliveryDate: '2026-07-10', deliveryAddress: ADDRESS } },
-]
-
-type RefundsScenario = {
-    year: number
-    month: number
-    amount: number
-    requestedBy: string
-    reason?: string
-    ack?: true
-    confirm?: { refundReference: string }
-    deposit?: { depositAmount: number; depositDate: string }
-}
-
-// `reason` always present: if missing, Mongo persists null and the state schema
-// (`reason: z.string().optional()`) rejects the state when validating the resume.
-const refundsScenarios: RefundsScenario[] = [
-    { year: 2025, month: 8, amount: 12000, reason: 'Consulta médica', requestedBy: 'Ana', ack: true, confirm: { refundReference: 'REF-2025-0801' }, deposit: { depositAmount: 12000, depositDate: '2025-08-22' } },
-    { year: 2025, month: 9, amount: 8500, reason: 'Farmacia', requestedBy: 'Alex', ack: true, confirm: { refundReference: 'REF-2025-0901' }, deposit: { depositAmount: 8500, depositDate: '2025-09-19' } },
-    { year: 2025, month: 10, amount: 25000, reason: 'Estudios de laboratorio', requestedBy: 'Ana', ack: true, confirm: { refundReference: 'REF-2025-1001' }, deposit: { depositAmount: 25000, depositDate: '2025-10-24' } },
-    { year: 2025, month: 11, amount: 14000, reason: 'Sesión de kinesiología', requestedBy: 'Ana', ack: true, confirm: { refundReference: 'REF-2025-1101' }, deposit: { depositAmount: 14000, depositDate: '2025-11-21' } },
-    { year: 2025, month: 12, amount: 32000, reason: 'Consulta con especialista', requestedBy: 'Alex', ack: true, confirm: { refundReference: 'REF-2025-1201' }, deposit: { depositAmount: 32000, depositDate: '2025-12-23' } },
-    { year: 2026, month: 1, amount: 9500, reason: 'Farmacia', requestedBy: 'Ana', ack: true, confirm: { refundReference: 'REF-2026-0101' }, deposit: { depositAmount: 9500, depositDate: '2026-01-23' } },
-    { year: 2026, month: 2, amount: 21000, reason: 'Estudios de imagen', requestedBy: 'Alex', ack: true, confirm: { refundReference: 'REF-2026-0201' }, deposit: { depositAmount: 21000, depositDate: '2026-02-20' } },
-    { year: 2026, month: 3, amount: 16500, reason: 'Consulta médica', requestedBy: 'Ana', ack: true, confirm: { refundReference: 'REF-2026-0301' }, deposit: { depositAmount: 16500, depositDate: '2026-03-20' } },
-    // Suspendido esperando acuse (refund_requested)
-    { year: 2026, month: 4, amount: 15000, reason: 'Consulta médica', requestedBy: 'Ana' },
-    // Acusado (ack_notified)
-    { year: 2026, month: 5, amount: 22000, reason: 'Estudios de laboratorio', requestedBy: 'Alex', ack: true },
-    // Confirmed, waiting for deposit (confirmation_notified)
-    {
-        year: 2026, month: 6, amount: 18000, reason: 'Sesión de kinesiología', requestedBy: 'Ana', ack: true,
-        confirm: { refundReference: 'REF-2026-0601' },
-    },
-    // Completo (refunds_notification_sent)
-    {
-        year: 2026, month: 7, amount: 30000, reason: 'Medicamentos', requestedBy: 'Alex', ack: true,
-        confirm: { refundReference: 'REF-2026-0702' },
-        deposit: { depositAmount: 30000, depositDate: '2026-07-20' },
-    },
-]
 
 // ── Simulated clock ─────────────────────────────────────────────────────────
 // Steps take timestamps with nowUnix() (which uses Date.now), so each
@@ -169,11 +72,137 @@ function buildTimeline(domain: Domain, year: number, month: number): Timeline {
     const day = 1 + Math.floor(rand() * 5) // 1..5
     const hour = 9 + Math.floor(rand() * 9) // 9..17
     const requestedAt = Math.floor(Date.UTC(year, month - 1, day, hour, Math.floor(rand() * 60)) / 1000)
-    const ackAt = requestedAt + Math.floor((1 + rand() * 2) * DAY) // +1-3 días
-    const confirmAt = ackAt + Math.floor((2 + rand() * 3) * DAY) // +2-5 días
-    const depositAt = confirmAt + Math.floor((7 + rand() * 8) * DAY) // +7-15 días
+    const ackAt = requestedAt + Math.floor((1 + rand() * 2) * DAY) // +1-3 days
+    const confirmAt = ackAt + Math.floor((2 + rand() * 3) * DAY) // +2-5 days
+    const depositAt = confirmAt + Math.floor((7 + rand() * 8) * DAY) // +7-15 days
     return { requestedAt, ackAt, confirmAt, depositAt }
 }
+
+function isoDate(unixSeconds: number): string {
+    return new Date(unixSeconds * 1000).toISOString().slice(0, 10)
+}
+
+// ── Scenarios ───────────────────────────────────────────────────────────────
+// Always fictitious data: the repo is public.
+//
+// The 24 months before the current one (the current month holds the real
+// order and is left alone). Mostly completed; the most recent months stay in
+// intermediate states so the reports show every stage. Values are
+// pseudo-random per month, so re-running the seed in the same month is a no-op.
+
+const MONTHS = 24
+const ADDRESS = 'Calle Falsa 123'
+const PEOPLE = ['Ana', 'Alex']
+const SIZES = ['M', 'G', 'XG'] as const
+const MEDICATIONS = [
+    ['Enalapril 10', 'Aspirina 100'],
+    ['Enalapril 10', 'Omeprazol 20'],
+    ['Enalapril 10', 'Ibuprofeno 600'],
+    ['Enalapril 10', 'Levotiroxina 50'],
+    ['Amoxicilina 500'],
+    ['Paracetamol 1g'],
+]
+const REASONS = [
+    'Consulta médica', 'Farmacia', 'Estudios de laboratorio', 'Sesión de kinesiología',
+    'Consulta con especialista', 'Estudios de imagen', 'Medicamentos',
+]
+
+function pick<T>(rand: () => number, items: readonly T[]): T {
+    return items[Math.floor(rand() * items.length)]
+}
+
+// `age` is how many months back: 1 = last month, MONTHS = two years ago.
+type SeedMonth = { year: number; month: number; age: number }
+
+function pastMonths(count: number): SeedMonth[] {
+    const now = new Date()
+    const months: SeedMonth[] = []
+    for (let age = count; age >= 1; age--) {
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - age, 1))
+        months.push({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, age })
+    }
+    return months
+}
+
+function monthRandom(domain: Domain, year: number, month: number): () => number {
+    // Offset from buildTimeline's seed so values and dates aren't correlated.
+    return seededRandom(year * 1000 + month * 10 + DOMAINS.indexOf(domain) + 7)
+}
+
+type DiapersScenario = {
+    year: number
+    month: number
+    size: 'M' | 'G' | 'XG'
+    requestedBy: string
+    confirm?: { deliveryDate: string; deliveryAddress: string; quantity: number }
+}
+
+// Age 2: suspended waiting for the provider (diapers_requested).
+const diapersScenarios: DiapersScenario[] = pastMonths(MONTHS).map(({ year, month, age }) => {
+    const rand = monthRandom('diapers', year, month)
+    const t = buildTimeline('diapers', year, month)
+    return {
+        year, month,
+        size: pick(rand, SIZES),
+        requestedBy: pick(rand, PEOPLE),
+        confirm: age === 2 ? undefined : {
+            deliveryDate: isoDate(t.confirmAt), deliveryAddress: ADDRESS, quantity: 60 + 10 * Math.floor(rand() * 6),
+        },
+    }
+})
+
+type MedsScenario = {
+    year: number
+    month: number
+    medications: string[]
+    requestedBy: string
+    ack?: true
+    confirm?: { deliveryDate: string; deliveryAddress: string }
+}
+
+// Age 3: waiting for acknowledgement (meds_requested).
+// Age 2: acknowledged, waiting for delivery confirmation (ack_notified).
+const medsScenarios: MedsScenario[] = pastMonths(MONTHS).map(({ year, month, age }) => {
+    const rand = monthRandom('meds', year, month)
+    const t = buildTimeline('meds', year, month)
+    return {
+        year, month,
+        medications: pick(rand, MEDICATIONS),
+        requestedBy: pick(rand, PEOPLE),
+        ack: age === 3 ? undefined : true,
+        confirm: age === 2 || age === 3 ? undefined : { deliveryDate: isoDate(t.confirmAt), deliveryAddress: ADDRESS },
+    }
+})
+
+type RefundsScenario = {
+    year: number
+    month: number
+    amount: number
+    requestedBy: string
+    reason?: string
+    ack?: true
+    confirm?: { refundReference: string }
+    deposit?: { depositAmount: number; depositDate: string }
+}
+
+// `reason` always present: if missing, Mongo persists null and the state schema
+// (`reason: z.string().optional()`) rejects the state when validating the resume.
+// Age 4: waiting for acknowledgement (refund_requested).
+// Age 3: acknowledged (ack_notified).
+// Age 2: confirmed, waiting for the deposit (confirmation_notified).
+const refundsScenarios: RefundsScenario[] = pastMonths(MONTHS).map(({ year, month, age }) => {
+    const rand = monthRandom('refunds', year, month)
+    const t = buildTimeline('refunds', year, month)
+    const amount = 5000 + 500 * Math.floor(rand() * 55) // 5.000..32.000
+    return {
+        year, month, amount,
+        reason: pick(rand, REASONS),
+        requestedBy: pick(rand, PEOPLE),
+        ack: age === 4 ? undefined : true,
+        confirm: age === 3 || age === 4 ? undefined : { refundReference: `REF-${year}-${String(month).padStart(2, '0')}01` },
+        deposit: age >= 2 && age <= 4 ? undefined : { depositAmount: amount, depositDate: isoDate(t.depositAt) },
+    }
+})
 
 // ── Infra ───────────────────────────────────────────────────────────────────
 
@@ -260,13 +289,13 @@ function reportStep(label: string, step: string, result: StepResult): boolean {
     return true
 }
 
-// ── Seeds por dominio ───────────────────────────────────────────────────────
+// ── Per-domain seeds ───────────────────────────────────────────────────────
 
 async function seedDiapers(mastra: Mastra): Promise<void> {
     for (const s of diapersScenarios) {
         const label = monthLabel('diapers', s.year, s.month)
         if (await runAlreadyDone(mastra, 'diapers', getDiapersRunId(s.year, s.month))) {
-            console.info(`[seed-runs] ${label}: ya completado, salteado`)
+            console.info(`[seed-runs] ${label}: already completed, skipped`)
             continue
         }
         const t = buildTimeline('diapers', s.year, s.month)
@@ -288,7 +317,7 @@ async function seedMeds(mastra: Mastra): Promise<void> {
     for (const s of medsScenarios) {
         const label = monthLabel('meds', s.year, s.month)
         if (await runAlreadyDone(mastra, 'meds', getMedsRunId(s.year, s.month))) {
-            console.info(`[seed-runs] ${label}: ya completado, salteado`)
+            console.info(`[seed-runs] ${label}: already completed, skipped`)
             continue
         }
         const t = buildTimeline('meds', s.year, s.month)
@@ -314,7 +343,7 @@ async function seedRefunds(mastra: Mastra): Promise<void> {
     for (const s of refundsScenarios) {
         const label = monthLabel('refunds', s.year, s.month)
         if (await runAlreadyDone(mastra, 'refunds', getRefundsRunId(s.year, s.month))) {
-            console.info(`[seed-runs] ${label}: ya completado, salteado`)
+            console.info(`[seed-runs] ${label}: already completed, skipped`)
             continue
         }
         const t = buildTimeline('refunds', s.year, s.month)
@@ -365,7 +394,7 @@ async function main(): Promise<void> {
         await mongoose.disconnect()
     }
 
-    console.info('[seed-runs] listo')
+    console.info('[seed-runs] done')
     // Mastra's store leaves the connection open; the script is done.
     process.exit(0)
 }
