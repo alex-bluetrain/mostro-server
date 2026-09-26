@@ -1,8 +1,8 @@
 import { Schema, model } from 'mongoose';
 
-// Las preferencias viven embebidas en el user y no en una collection aparte:
-// son atributos de la persona, no entidades con vida propia. Un solo documento
-// por identidad evita joins y desincronización (ver scripts/migrate-subscribers.ts).
+// Preferences are embedded in the user, not a separate collection: they are
+// attributes of the person, not entities with their own lifecycle. One document
+// per identity avoids joins and drift.
 export interface IUserPreferences {
   notifications: boolean;
 }
@@ -12,8 +12,8 @@ export interface IUser {
   name: string;
   role: 'admin' | 'member';
   telegramId?: string;
-  // Canal secundario, opcional: se vincula desde Telegram con linkDiscordTool.
-  // El alta y las notificaciones siguen yendo por telegramId.
+  // Optional secondary channel, linked from Telegram via linkDiscordTool.
+  // Sign-up and notifications still go through telegramId.
   discordId?: string;
   addedAt: number;
   preferences: IUserPreferences;

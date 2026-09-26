@@ -45,7 +45,8 @@ await mongoose.connect(appConfig.MONGODB_URI, {
 });
 
 // ngrok is only for local dev: in production (VM + Caddy) there is no authtoken.
-// The tunnel exposes mostro-app (login lives there), not this backend.
+// The tunnel exposes this backend (NGROK_FORWARD_ADDR, e.g. localhost:4111) so
+// Telegram can deliver webhooks to it; without NGROK_FORWARD_ADDR it is skipped.
 if (appConfig.NGROK_AUTHTOKEN) {
     await startNgrokTunnel();
 }
@@ -61,8 +62,8 @@ if (appConfig.ADMIN_EMAIL) {
     appLogger.warn('[mastra] ADMIN_EMAIL not set, skipping admin seed');
 }
 
-// Las reglas de clasificación son precondición de los polls: si falta el puntero,
-// el bootstrap lo publica desde env (o avisa fuerte) acá y no 15 min después en el cron.
+// Classifier rules are a precondition for the polls: if the pointer is missing,
+// the bootstrap publishes it from env (or warns loudly) here, not 15 min later in the cron.
 await ensureClassifierSeed();
 
 export const mastra = new Mastra({
@@ -100,10 +101,10 @@ export const mastra = new Mastra({
         diapersPollWorkflow, medsPollWorkflow, refundsPollWorkflow,
     },
     agents: { mostroSupervisor, inboxClassifier: inboxClassifierAgent },
-    // Los scorers de weather quedan registrados para correrlos a mano desde el
-    // playground, pero ya no van atados a un agente: el weather agent se
-    // colapsó en el supervisor y atarlos ahí puntuaría cada mensaje (de
-    // cualquier dominio) contra expectativas de clima.
+    // The weather scorers stay registered to run by hand from the playground,
+    // but are no longer attached to an agent: the weather agent was folded into
+    // the supervisor, and attaching them there would score every message (from
+    // any domain) against weather expectations.
     scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
     storage: new MastraCompositeStore({
         id: 'composite-storage',
@@ -133,10 +134,10 @@ export const mastra = new Mastra({
     }),
 });
 
-// El adapter de telegram desvía los /start (bot_command) al pipeline de slash
-// commands del Chat SDK, así que el canje de invitaciones se registra acá y no
-// en el gate de onDirectMessage. initialize() es idempotente: espera la
-// inicialización que addAgent ya disparó y garantiza que sdk esté disponible.
+// The Telegram adapter routes /start (bot_command) to the Chat SDK slash-command
+// pipeline, so invite redemption is registered here, not in the onDirectMessage
+// gate. initialize() is idempotent: it awaits the initialization addAgent
+// already started and guarantees sdk is available.
 const supervisorChannels = mostroSupervisor.getChannels();
 if (supervisorChannels) {
     try {

@@ -10,10 +10,10 @@ function contextFor(channel?: string) {
 }
 
 describe('supervisorInstructions', () => {
-    // El prompt de OpenUI exige que toda la respuesta sea openui-lang. Si se
-    // filtra a Telegram, el bot deja de mandar texto y queda inutilizable: este
-    // test es la red que evita esa regresión.
-    it('deja las instrucciones de Telegram intactas (con fecha antepuesta)', () => {
+    // The OpenUI prompt requires the whole answer to be openui-lang. If it leaks
+    // to Telegram, the bot stops sending text and becomes unusable: this test is
+    // the safety net against that regression.
+    it('leaves the Telegram instructions intact (with the date prepended)', () => {
         const instructions = supervisorInstructions(contextFor())
 
         expect(instructions).toContain(MOSTRO_SUPERVISOR_INSTRUCTIONS)
@@ -21,21 +21,21 @@ describe('supervisorInstructions', () => {
         expect(instructions).not.toMatch(/openui-lang/)
     })
 
-    it('no filtra openui-lang a canales que no son web', () => {
+    it('does not leak openui-lang to non-web channels', () => {
         expect(supervisorInstructions(contextFor('telegram'))).not.toMatch(/openui-lang/)
     })
 
-    it('agrega el prompt de OpenUI en web', () => {
+    it('adds the OpenUI prompt on web', () => {
         const instructions = supervisorInstructions(contextFor('web'))
 
         expect(instructions).toMatch(/openui-lang/)
         expect(instructions).toContain('Channel: web (OpenUI)')
     })
 
-    it('conserva las reglas de negocio en web', () => {
+    it('keeps the business rules on web', () => {
         const instructions = supervisorInstructions(contextFor('web'))
 
-        // El formato cambia, la conducta no: delegación y tono siguen valiendo.
+        // The format changes, the behavior does not: business rules and tone still apply.
         expect(instructions).toContain(MOSTRO_SUPERVISOR_INSTRUCTIONS)
     })
 })

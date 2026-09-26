@@ -33,32 +33,32 @@ User management:
 - New users receive a fixed welcome message outside your pipeline that may ask for their name. If a user introduces themselves or states their name, save it with setMyNameTool.
 - You can invite new users and link Discord accounts, but those capabilities are not pinned: search for them (search_tools / skills) when someone asks to invite a person or to chat via Discord. If the search finds nothing, the capability is not available for this user — decline gracefully without inventing an alternative.
 - If a user asks to change their name, use setMyNameTool.
-- If a shared-order flow (agent or tool) reports that an order was not registered because the user's name is missing (reason 'requester_unidentified'), ask the user for their name, save it with setMyNameTool, then retry the order.
+- If a shared-order tool or workflow reports that an order was not registered because the user's name is missing (reason 'requester_unidentified'), ask the user for their name, save it with setMyNameTool, then retry the order.
 - If a shared-order flow reports that a send failed (reason 'send_failed'), the order was NOT placed. Do not retry it — just relay the message to the user as-is; they can ask again later.
 
 Behaviour Rules:
 - Hablas en español rioplatense, tono amigable pero conciso.
 
-CRITICAL RULE: when a notification signal arrives (system-generated context, not authored by the user), limit yourself to relaying its content to the user. Never delegate, call a tool, or resume a workflow in response to a notification signal — those signals only inform, they do not request an action.
+CRITICAL RULE: when a notification signal arrives (system-generated context, not authored by the user), limit yourself to relaying its content to the user. Never call a tool, load a skill, or resume a workflow in response to a notification signal — those signals only inform, they do not request an action.
 `;
 
-// La web renderiza OpenUI Lang; Telegram sólo sabe de texto. El prompt de
-// OpenUI exige que TODA la respuesta sea openui-lang, así que mandárselo a
-// Telegram le rompería los mensajes: por eso se agrega sólo cuando el canal es
-// web (lo marca web-thread.ts, la única puerta del browser).
-//
-// El bloque "Channel: web" de abajo sólo cubre lo que OPENUI_SYSTEM_PROMPT deja
-// ambiguo. No repitas ahí reglas que el prompt generado ya trae (que la
-// respuesta entera es openui-lang, o la lista de componentes): se regeneran
-// solas con `pnpm generate:openui-prompt`.
-// Los subagentes por dominio (meds/diapers/refunds) inyectaban la fecha para
-// scopear pedidos por mes. Al migrarlos a skills eso se perdió: el supervisor
-// necesita saber el día de hoy para resolver "el pedido de marzo" o "este mes".
+// The former per-domain sub-agents (meds/diapers/refunds, now skills) injected
+// the date to scope orders by month. That was lost when they became skills: the
+// supervisor needs today's date to resolve "the March order" or "this month".
 function todayHeader(): string {
     const now = new Date();
     return `Today is ${now.toISOString().slice(0, 10)} (YYYY-MM-DD). The current month scope is ${now.toISOString().slice(0, 7)} (YYYY-MM). Use this month unless the user names a different one.`;
 }
 
+// The web renders OpenUI Lang; Telegram only understands text. The OpenUI
+// prompt requires the WHOLE answer to be openui-lang, so sending it to Telegram
+// would break its messages: it is added only when the channel is web (set by
+// web-thread.ts, the browser's only entry point).
+//
+// The "Channel: web" block below only covers what OPENUI_SYSTEM_PROMPT leaves
+// ambiguous. Do not repeat rules the generated prompt already has (that the
+// whole answer is openui-lang, or the component list): those are regenerated
+// by `pnpm generate:openui-prompt`.
 export function supervisorInstructions({ requestContext }: { requestContext: RequestContext }): string {
     if (requestContext.get(CHANNEL_KEY) !== 'web') return `${todayHeader()}\n\n${MOSTRO_SUPERVISOR_INSTRUCTIONS}`;
 
@@ -88,20 +88,20 @@ export const mostroSupervisor = new Agent({
     name: 'Mostro',
     instructions: supervisorInstructions,
     model: mostroSupervisorModel,
-    // Solo las tools core quedan pineadas: subscribe (regla crítica de
-    // notificaciones) y setMyName. El resto vive en el catálogo y se descubre
-    // vía search_tools (ver tools/registry.ts).
+    // Only the core tools are pinned: subscribe (critical notification rule) and
+    // setMyName. The rest live in the catalog and are discovered via
+    // search_tools (see tools/registry.ts).
     tools: { setMyNameTool, subscribeTool },
     skills: supervisorSkillsResolver,
     inputProcessors: [
         new ToolSearchProcessor({
             tools: toolRegistry,
-            // autoLoad colapsa search→load→use en search→use: una llamada
-            // menos por descubrimiento. topK bajo porque cada match se activa.
+            // autoLoad collapses search→load→use into search→use: one call
+            // fewer per discovery. Low topK because every match gets activated.
             search: { topK: 3, minScore: 0.15, autoLoad: true },
-            // Permisos en código, no en prosa: una tool que el filtro oculta
-            // ni aparece en los resultados de búsqueda. El lookup de usuario
-            // se cachea por RequestContext (el hook corre por candidato).
+            // Permissions in code, not in prose: a tool hidden by the filter
+            // does not even show up in search results. The user lookup is
+            // cached per RequestContext (the hook runs per candidate).
             filter: async ({ toolName, requestContext }) => {
                 if (toolName === 'create-invite') return isRequestAdmin(requestContext);
                 return true;
@@ -114,12 +114,12 @@ export const mostroSupervisor = new Agent({
             telegram: {
                 adapter: createTelegramAdapter(),
                 streaming: true,
-                toolDisplay: 'hidden', // supress tool calls messages
+                toolDisplay: 'hidden', // suppress tool call messages
             },
-            // Canal secundario y opcional: mismo trato que Telegram (texto
-            // plano, sin openui-lang) porque CHANNEL_KEY sólo lo marca
-            // web-thread.ts. createDiscordAdapter() lanza si faltan las
-            // credenciales, así que sin ellas el canal directamente no existe.
+            // Optional secondary channel: treated like Telegram (plain text, no
+            // openui-lang) because only web-thread.ts sets CHANNEL_KEY.
+            // createDiscordAdapter() throws if credentials are missing, so
+            // without them the channel does not exist.
             ...(discordEnabled
                 ? {
                       discord: {
@@ -130,13 +130,13 @@ export const mostroSupervisor = new Agent({
                   }
                 : {}),
         },
-        // Memoria canónica: todo thread queda a nombre del email del usuario
-        // (nunca telegram:<id> ni discord:<id>), así los dos canales comparten
-        // memoria. Corre solo al crear un thread; si el autor no resuelve a un
-        // usuario, lanza (ver resolve-resource-id.ts).
+        // Canonical memory: every thread is owned by the user's email (never
+        // telegram:<id> or discord:<id>), so both channels share memory. Runs
+        // only when a thread is created; if the author does not resolve to a
+        // user, it throws (see resolve-resource-id.ts).
         resolveResourceId: createResolveResourceId(),
-        // La compuerta de acceso debe cubrir los tres caminos de entrada (DM, mención, suscripción)
-        // para rechazar remitentes desconocidos en todas partes.
+        // The access gate must cover all three entry paths (DM, mention, subscription)
+        // to reject unknown senders everywhere.
         handlers: {
             onDirectMessage: createChannelGate(),
             onMention: createChannelGate(),

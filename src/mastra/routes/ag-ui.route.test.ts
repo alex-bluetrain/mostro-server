@@ -47,13 +47,13 @@ describe('agUIRoute', () => {
         })
     })
 
-    it('cuelga del middleware que exige el JWT y marca el canal web', () => {
+    it('is behind the middleware that requires an authenticated identity and marks the web channel', () => {
         expect((agUIRoute as unknown as { middleware: unknown }).middleware).toBeDefined()
     })
 
-    // Sin requestContext el supervisor no ve CHANNEL_KEY y contesta en texto
-    // plano: el cliente OpenUI no sabe renderizar eso.
-    it('le pasa el requestContext y el resourceId al bridge de AG-UI', async () => {
+    // Without requestContext the supervisor does not see CHANNEL_KEY and answers
+    // in plain text, which the OpenUI client cannot render.
+    it('passes the requestContext and resourceId to the AG-UI bridge', async () => {
         const handler = (agUIRoute as unknown as { handler: Handler }).handler
         await handler(contextWith({ messages: [] }))
 
@@ -62,15 +62,15 @@ describe('agUIRoute', () => {
         )
     })
 
-    // El thread sale del token (lo derivó webThreadMiddleware), nunca del body.
-    it('usa el thread del contexto y no el que mande el cliente', async () => {
+    // The thread comes from the token (derived by webThreadMiddleware), never from the body.
+    it('uses the thread from the context, not the one the client sends', async () => {
         const handler = (agUIRoute as unknown as { handler: Handler }).handler
         await handler(contextWith({ messages: [], threadId: 'victima@example.com:web' }))
 
         expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ threadId: 'ana@gmail.com:web' }))
     })
 
-    it('serializa los eventos del Observable como SSE', async () => {
+    it('serializes the Observable events as SSE', async () => {
         const handler = (agUIRoute as unknown as { handler: Handler }).handler
         const response = await handler(contextWith({ messages: [] }))
 

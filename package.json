@@ -4,7 +4,7 @@
   "description": "A multi-agent Telegram bot for managing recurring family orders — diapers, medications, and refunds — built with Mastra.",
   "private": true,
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "Alex Verstraeten <averstraeten@gmail.com>",
   "engines": {
     "node": ">=22.13.0"
@@ -20,7 +20,6 @@
     "gmail:auth": "node --env-file=.env scripts/gmail-authorize.mjs",
     "seed:classifier": "node --env-file=.env --import tsx scripts/seed-classifier.ts",
     "seed:runs": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/seed-workflow-runs.ts",
-    "migrate:subscribers": "node --env-file=.env --import tsx scripts/migrate-subscribers.ts",
     "generate:openui-prompt": "node --import tsx scripts/generate-openui-prompt.ts"
   },
   "dependencies": {

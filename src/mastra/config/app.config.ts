@@ -1,7 +1,7 @@
 import z from "zod";
 
-// Normaliza valores "presentes pero vacíos" a undefined. Cubre el caso de
-// docker-compose env_file, que no saca las comillas: `FOO=''` -> `''`.
+// Normalizes "present but empty" values to undefined. Covers docker-compose
+// env_file, which does not strip quotes: `FOO=''` -> `''`.
 function emptyToUndefined(value: string): string | undefined {
     const trimmed = value.trim().replace(/^['"]|['"]$/g, '');
     return trimmed.length === 0 ? undefined : trimmed;
@@ -14,9 +14,9 @@ const envSchema = z.object({
     TELEGRAM_BOT_USERNAME: z.string().min(1),
     TELEGRAM_BOT_TOKEN: z.string().min(1),
     TELEGRAM_WEBHOOK_SECRET_TOKEN: z.string().min(1),
-    // Canal secundario opcional. Las tres van juntas o no va ninguna: el
-    // adapter lanza en el constructor si le falta alguna, así que sin las tres
-    // ni se registra (ver mostro-supervisor.ts).
+    // Optional secondary channel. All three or none: the adapter throws in its
+    // constructor if any is missing, so without all three it is not registered
+    // (see mostro-supervisor.ts).
     DISCORD_BOT_TOKEN: z.string().min(1).optional(),
     DISCORD_APPLICATION_ID: z.string().min(1).optional(),
     DISCORD_PUBLIC_KEY: z.string().min(1).optional(),
@@ -26,21 +26,21 @@ const envSchema = z.object({
     // Enables SimpleAuth for Studio. Meant for prod: lets a local Studio point
     // at prod with an admin token.
     STUDIO_API_KEY: z.string().min(32).optional(),
-    // Habilita MastraAuthGoogle en modo Bearer: clientes (Expo Android/web con
-    // PKCE) mandan el id_token de Google en el header Authorization y mostro lo
-    // verifica contra JWKS. Opt-in como STUDIO_API_KEY; sin esto el provider ni
-    // se registra. GOOGLE_CLIENT_SECRET + GOOGLE_COOKIE_PASSWORD son solo para
-    // la fase 2 (SSO/cookie), que este plan no activa.
+    // Enables MastraAuthGoogle in Bearer mode: clients (Expo Android/web with
+    // PKCE) send the Google id_token in the Authorization header and mostro
+    // verifies it against JWKS. Opt-in like STUDIO_API_KEY; without it the
+    // provider is not registered. GOOGLE_CLIENT_SECRET + GOOGLE_COOKIE_PASSWORD
+    // are only for an SSO/cookie mode that is not enabled today.
     GOOGLE_CLIENT_ID: z.string().min(1).optional(),
     GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
     GOOGLE_COOKIE_PASSWORD: z.string().min(32).optional(),
-    // Templates JSON de reglas de clasificación (minificados). Solo se usan como
-    // bootstrap: si el dominio ya tiene puntero activo en Mongo, se ignoran.
+    // Classifier rule templates as minified JSON. Bootstrap only: ignored if the
+    // domain already has an active pointer in Mongo.
     CLASSIFIER_RULES_DIAPERS: z.string().optional(),
     CLASSIFIER_RULES_MEDS: z.string().optional(),
     CLASSIFIER_RULES_REFUNDS: z.string().optional(),
-    // Logs a Axiom. Si falta alguna de las dos, los logs quedan solo en stdout
-    // (dev) / docker logs (prod). Mismo criterio opt-in que STUDIO_API_KEY.
+    // Logs to Axiom. If either is missing, logs stay in stdout (dev) / docker
+    // logs (prod). Opt-in, same as STUDIO_API_KEY.
     AXIOM_TOKEN: z.string().optional(),
     AXIOM_DATASET: z.string().optional(),
     GMAIL_MAILER_CLIENT_ID: z.string().min(1),
@@ -54,18 +54,17 @@ const envSchema = z.object({
     DIAPERS_EMAIL_TO: z.string().min(3),
     MEDS_EMAIL_TO: z.string().min(3),
     REFUNDS_EMAIL_TO: z.string().min(3),
-    // Docker Compose no interpreta comillas en env_file: `NGROK_AUTHTOKEN=''`
-    // llega como el string literal `''` (truthy) y dispara ngrok con un token
-    // inválido. Normalizamos a undefined cualquier valor vacío/whitespace/comillas.
+    // Docker Compose does not parse quotes in env_file: `NGROK_AUTHTOKEN=''`
+    // arrives as the literal string `''` (truthy) and starts ngrok with an
+    // invalid token. Any empty/whitespace/quoted-empty value becomes undefined.
     NGROK_AUTHTOKEN: z.string().transform(emptyToUndefined).optional(),
     NGROK_DOMAIN: z.string().transform(emptyToUndefined).optional(),
-    // Where the tunnel points. Login (Google SSO) is handled by mostro-app, so
-    // the tunnel exposes the webapp, not the backend. In Docker it is
-    // `mostro-app-web:3000` via the compose hostname; in local dev, `localhost:3000`.
+    // Where the tunnel points: this server. In Docker it is `mostro-server:4111`
+    // via the compose hostname; in local dev, `localhost:4111`.
     NGROK_FORWARD_ADDR: z.string().transform(emptyToUndefined).optional(),
-    // Orígenes CORS extra para dev local, separados por coma. El backend ya
-    // permite el dominio de ngrok; esto habilita, por ejemplo, la Expo web en
-    // http://localhost:8097 sin tocar código. Vacío en prod.
+    // Extra CORS origins for local dev, comma-separated. The backend already
+    // allows the ngrok domain; this adds e.g. the Expo web dev server at
+    // http://localhost:8081 without code changes. Empty in prod.
     DEV_CORS_ORIGINS: z
         .string()
         .transform(emptyToUndefined)

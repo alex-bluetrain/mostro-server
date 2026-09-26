@@ -5,18 +5,18 @@ import { registerApiRoute } from '@mastra/core/server'
 import { mostroSupervisor } from '../agents/mostro-supervisor'
 import { webThreadMiddleware } from '@lib/web-thread'
 
-// Puerta AG-UI del cliente web: `@ag-ui/mastra` traduce el stream del
-// supervisor a eventos del protocolo AG-UI, que OpenUI parsea con agUIAdapter()
-// del lado del browser. No hay `streamHandler`: la API es `run()`, que devuelve
-// un Observable, y cada evento se serializa como SSE.
+// AG-UI entry point for the web client: `@ag-ui/mastra` translates the
+// supervisor stream into AG-UI protocol events, which OpenUI parses with
+// agUIAdapter() in the browser. There is no `streamHandler`: the API is `run()`,
+// which returns an Observable, and each event is serialized as SSE.
 //
-// El MastraAgent se crea por request, no a nivel módulo: lleva adentro el
-// requestContext (de ahí sale CHANNEL_KEY, que es lo que hace que el supervisor
-// conteste en openui-lang) y el traceId, que serían compartidos entre usuarios
-// si la instancia fuera única.
+// The MastraAgent is created per request, not at module level: it carries the
+// requestContext (source of CHANNEL_KEY, which makes the supervisor answer in
+// openui-lang) and the traceId, which would be shared across users if the
+// instance were a singleton.
 export const agUIRoute = registerApiRoute('/agents/mostro-supervisor/openui', {
     method: 'POST',
-    // Mismo middleware que /chat: exige el JWT y deriva el thread del token.
+    // Same middleware as /chat: global auth (Google id_token or STUDIO_API_KEY) already set the resourceId; here it is required and the thread is derived from it.
     middleware: webThreadMiddleware,
     handler: async c => {
         const requestContext = c.get('requestContext')
