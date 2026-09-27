@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.14.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.13.0...v1.14.0) (2026-09-27)
+
+
+### Features
+
+* **auth:** web login with a Google redirect and a 30-day session cookie ([ffc61d3](https://github.com/alex-bluetrain/mostro-server/commit/ffc61d3e5b9ef0587a09ddaef965a6ee5ccf2761))
+
+
+### Bug Fixes
+
+* **auth:** Studio key sets identity only, not data scope ([6e1700d](https://github.com/alex-bluetrain/mostro-server/commit/6e1700d5f32a9781c263b7bc471a1012c6cf1665))
+
 ## [1.13.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.12.0...v1.13.0) (2026-09-23)
 
 
