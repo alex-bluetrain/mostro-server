@@ -12,7 +12,7 @@ Set one env var:
 GOOGLE_CLIENT_ID=<oauth-client-id>.apps.googleusercontent.com
 ```
 
-Without it, the provider isn't registered (opt-in, same as `STUDIO_API_KEY`). This mode does **not** need `GOOGLE_CLIENT_SECRET` or `GOOGLE_COOKIE_PASSWORD`; those are only for the SSO/cookie mode, which isn't enabled.
+Without it, the provider isn't registered (opt-in, same as `STUDIO_API_KEY`). This mode does **not** need `GOOGLE_CLIENT_SECRET` or `GOOGLE_COOKIE_PASSWORD`; those are only for the web session cookie ([web-session.md](web-session.md)).
 
 ## Client contract
 

@@ -380,7 +380,6 @@ bypass Pino entirely, so they only reach `docker logs`, not Axiom.
 
 ## Known limitations / TODO
 
-- **Phase 2: SSO / cookie flow not implemented.** The cookie-based SSO flow (`GOOGLE_CLIENT_SECRET`
-  and `GOOGLE_COOKIE_PASSWORD`) is not wired up. Current auth is Bearer id_token only. SSO would enable persistent web
-  sessions and silent re-auth for the Expo web client.
+- **Web session:** the web app logs in via a server-side Google redirect and keeps a 30-day HttpOnly
+  session cookie; see [web-session.md](web-session.md).
 

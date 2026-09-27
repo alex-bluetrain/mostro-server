@@ -33,6 +33,8 @@ import {
     activateClassifierVersionRoute,
 } from './routes/classifier-rules.route';
 import { agUIRoute } from './routes/ag-ui.route';
+import { googleCallbackRoute, googleLoginRoute, logoutRoute } from './routes/auth.route';
+import { sessionRenewalMiddleware } from './lib/web-session-auth';
 
 const ngrokOrigin = appConfig.NGROK_DOMAIN ? `https://${appConfig.NGROK_DOMAIN}` : undefined;
 const corsOrigins = [ngrokOrigin, ...appConfig.DEV_CORS_ORIGINS].filter(
@@ -75,6 +77,7 @@ export const mastra = new Mastra({
                 credentials: true,
             }
             : undefined,
+        middleware: [sessionRenewalMiddleware],
         // Exposes every agent in AI SDK format (Assistant UI protocol). Not used
         // by mostro-app (which uses the AG-UI/OpenUI route); kept for now.
         apiRoutes: [
@@ -86,6 +89,9 @@ export const mastra = new Mastra({
                 middleware: webThreadMiddleware,
             },
             agUIRoute,
+            googleLoginRoute,
+            googleCallbackRoute,
+            logoutRoute,
             meRoute,
             workflowsOverviewRoute,
             listInvitesRoute,

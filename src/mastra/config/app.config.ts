@@ -29,11 +29,19 @@ const envSchema = z.object({
     // Enables MastraAuthGoogle in Bearer mode: clients (Expo Android/web with
     // PKCE) send the Google id_token in the Authorization header and mostro
     // verifies it against JWKS. Opt-in like STUDIO_API_KEY; without it the
-    // provider is not registered. GOOGLE_CLIENT_SECRET + GOOGLE_COOKIE_PASSWORD
-    // are only for an SSO/cookie mode that is not enabled today.
+    // provider is not registered.
     GOOGLE_CLIENT_ID: z.string().min(1).optional(),
-    GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
-    GOOGLE_COOKIE_PASSWORD: z.string().min(32).optional(),
+    // Web session (see web-session-auth.ts): the browser logs in through a
+    // Google redirect and keeps a 30-day HttpOnly cookie, so a reload doesn't
+    // log it out. Enabled only when all four are set (plus GOOGLE_CLIENT_ID).
+    // GOOGLE_COOKIE_PASSWORD signs the cookie. WEB_AUTH_URL is this server's
+    // base as the browser sees it (behind the Pages proxy: https://<app>/api);
+    // WEB_APP_URL is where the browser lands after login.
+    GOOGLE_CLIENT_SECRET: z.string().transform(emptyToUndefined).optional(),
+    GOOGLE_COOKIE_PASSWORD: z.string().transform(emptyToUndefined).optional()
+        .refine(value => value === undefined || value.length >= 32, 'must be at least 32 chars'),
+    WEB_AUTH_URL: z.string().transform(emptyToUndefined).optional(),
+    WEB_APP_URL: z.string().transform(emptyToUndefined).optional(),
     // Classifier rule templates as minified JSON. Bootstrap only: ignored if the
     // domain already has an active pointer in Mongo.
     CLASSIFIER_RULES_DIAPERS: z.string().optional(),

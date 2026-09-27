@@ -1,6 +1,7 @@
 import { SimpleAuth, CompositeAuth } from '@mastra/core/server'
 import { appConfig } from '@config/app.config'
 import { createGoogleAuth } from './google-auth'
+import { WebSessionAuth, webSessionConfig } from './web-session-auth'
 import { appLogger } from './app-logger'
 
 // The Telegram channel webhook lives under /api/* (protected by default by the
@@ -8,9 +9,10 @@ import { appLogger } from './app-logger'
 // TELEGRAM_WEBHOOK_SECRET_TOKEN, so it must stay public or the bot dies.
 export const TELEGRAM_CHANNEL_WEBHOOK = /^\/api\/agents\/[^/]+\/channels\/telegram\/webhook$/
 
-// Two ways in, both via bearer token and neither gated by the EE
-// license (the gate only covers login UI: SSO and credentials, which we don't use):
-// - Google id_token directly → PKCE clients (Expo), verified against JWKS.
+// Three ways in, none gated by the EE license (the gate only covers Mastra's
+// login UI: SSO and credentials, which we don't use):
+// - Google id_token directly → PKCE clients (Expo Android), verified against JWKS.
+// - Web session cookie → the browser, after the Google redirect in auth.route.ts.
 // - SimpleAuth with STUDIO_API_KEY → Studio, a single admin token.
 //
 // CompositeAuth tries the providers in order and the first to authenticate wins;
@@ -43,7 +45,10 @@ export function createServerAuth() {
         })
         : undefined
 
-    const providers = [googleAuth, studioAuth].filter(p => p !== undefined)
+    const sessionConfig = webSessionConfig()
+    const webSessionAuth = sessionConfig ? new WebSessionAuth(sessionConfig) : undefined
+
+    const providers = [googleAuth, webSessionAuth, studioAuth].filter(p => p !== undefined)
 
     if (providers.length === 0) {
         // With no providers the server is left open, so it's a config error
