@@ -3,8 +3,15 @@ import { Schema, model } from 'mongoose';
 // Preferences are embedded in the user, not a separate collection: they are
 // attributes of the person, not entities with their own lifecycle. One document
 // per identity avoids joins and drift.
+export const LANGUAGES = ['en', 'es'] as const;
+export const THEMES = ['system', 'light', 'dark'] as const;
+
+// language/theme stay unset until the user picks one, so the app keeps
+// following the device until then.
 export interface IUserPreferences {
   notifications: boolean;
+  language?: (typeof LANGUAGES)[number];
+  theme?: (typeof THEMES)[number];
 }
 
 export interface IUser {
@@ -22,6 +29,8 @@ export interface IUser {
 const userPreferencesSchema = new Schema<IUserPreferences>(
   {
     notifications: { type: Boolean, default: false },
+    language: { type: String, enum: LANGUAGES },
+    theme: { type: String, enum: THEMES },
   },
   { _id: false }
 );

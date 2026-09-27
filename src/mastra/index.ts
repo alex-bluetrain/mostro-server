@@ -23,7 +23,7 @@ import { medsPollWorkflow } from './workflows/meds-poll/meds-poll.workflow';
 import { refundsPollWorkflow } from './workflows/refunds-poll/refunds-poll.workflow';
 import { inboxClassifierAgent } from './agents/inbox-classifier-agent';
 import { webThreadMiddleware } from './lib/web-thread';
-import { meRoute } from './routes/me.route';
+import { meRoute, updateMyPreferencesRoute } from './routes/me.route';
 import { workflowsOverviewRoute } from './routes/workflows-overview.route';
 import { createInviteRoute, listInvitesRoute } from './routes/invites.route';
 import {
@@ -93,6 +93,7 @@ export const mastra = new Mastra({
             googleCallbackRoute,
             logoutRoute,
             meRoute,
+            updateMyPreferencesRoute,
             workflowsOverviewRoute,
             listInvitesRoute,
             createInviteRoute,

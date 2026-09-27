@@ -1,4 +1,4 @@
-import { User, type IUser } from '../models/user.model';
+import { User, type IUser, type IUserPreferences } from '../models/user.model';
 import { nowUnix } from '@lib/unix-time';
 
 export class UserRepository {
@@ -73,6 +73,13 @@ export class UserRepository {
       { $set: { 'preferences.notifications': enabled } }
     );
     return result.matchedCount > 0;
+  }
+
+  async updatePreferences(email: string, changes: Partial<IUserPreferences>): Promise<IUser | null> {
+    const $set = Object.fromEntries(
+      Object.entries(changes).map(([key, value]) => [`preferences.${key}`, value])
+    );
+    return User.findOneAndUpdate({ email: email.toLowerCase() }, { $set }, { new: true });
   }
 
   async listNotificationEmails(): Promise<string[]> {

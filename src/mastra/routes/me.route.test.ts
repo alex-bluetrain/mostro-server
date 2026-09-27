@@ -3,9 +3,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('@lib/request-identity', () => ({
     resolveRequestUser: vi.fn(),
 }))
+vi.mock('@business/repositories/user.repository', () => ({
+    userRepository: { updatePreferences: vi.fn() },
+}))
 
-import { meRoute } from './me.route'
+import { meRoute, updateMyPreferencesRoute } from './me.route'
 import { resolveRequestUser } from '@lib/request-identity'
+import { userRepository } from '@business/repositories/user.repository'
 
 // The handler only uses `get('requestContext')` and `json()`, so the Hono context
 // can be faked with those two things and the test doesn't start a server.
@@ -41,7 +45,7 @@ describe('meRoute', () => {
             email: 'ana@gmail.com',
             name: 'Ana',
             role: 'admin',
-            preferences: { notifications: true },
+            preferences: { notifications: true, language: null, theme: null },
         })
     })
 
@@ -64,5 +68,53 @@ describe('meRoute', () => {
         const response = await run('ghost@gmail.com')
 
         expect(response.status).toBe(401)
+    })
+})
+
+type Handler = (c: unknown) => Promise<{ body: unknown; status?: number }>
+
+function patch(body: unknown): Promise<{ body: unknown; status?: number }> {
+    const c = {
+        get: (key: string) => (key === 'requestContext' ? {} : undefined),
+        req: { json: async () => body },
+        json: (b: unknown, status?: number) => ({ body: b, status }),
+    }
+    return (updateMyPreferencesRoute as { handler: Handler }).handler(c)
+}
+
+describe('updateMyPreferencesRoute', () => {
+    const ana = { email: 'ana@gmail.com', name: 'Ana', role: 'member', addedAt: 1, preferences: { notifications: false } }
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(resolveRequestUser).mockResolvedValue(ana as any)
+    })
+
+    it('saves only the fields sent and returns the updated user', async () => {
+        vi.mocked(userRepository.updatePreferences).mockResolvedValue({
+            ...ana,
+            preferences: { notifications: false, theme: 'dark' },
+        } as any)
+
+        const response = await patch({ theme: 'dark' })
+
+        expect(userRepository.updatePreferences).toHaveBeenCalledWith('ana@gmail.com', { theme: 'dark' })
+        expect(response.body).toMatchObject({ preferences: { theme: 'dark', language: null } })
+    })
+
+    it.each([{ theme: 'blue' }, { language: 'fr' }, { notifications: 'yes' }, {}, null])(
+        'rejects %j with 400',
+        async body => {
+            const response = await patch(body)
+
+            expect(response.status).toBe(400)
+            expect(userRepository.updatePreferences).not.toHaveBeenCalled()
+        },
+    )
+
+    it('401s when the caller cannot be resolved', async () => {
+        vi.mocked(resolveRequestUser).mockResolvedValue(null)
+
+        expect((await patch({ theme: 'dark' })).status).toBe(401)
     })
 })
