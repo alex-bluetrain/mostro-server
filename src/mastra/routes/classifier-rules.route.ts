@@ -1,5 +1,5 @@
 import { registerApiRoute } from '@mastra/core/server'
-import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
+import { callerEmail } from '@lib/caller-email'
 import { classifierRepository } from '@business/repositories'
 import { CLASSIFIER_DOMAINS, type ClassifierDomain } from '@business/models/classifier-snapshot.model'
 import { requireAdmin } from '@lib/require-admin'
@@ -14,7 +14,7 @@ function parseDomain(raw: string | undefined): ClassifierDomain | null {
 export const listClassifierRulesRoute = registerApiRoute('/classifier-rules', {
     method: 'GET',
     handler: async c => {
-        const admin = await requireAdmin(c.get('requestContext')?.get(MASTRA_RESOURCE_ID_KEY))
+        const admin = await requireAdmin(callerEmail(c.get('requestContext')))
         if (!admin) return c.json({ error: 'Forbidden' }, 403)
 
         const active = await classifierRepository.listActiveVersions()
@@ -35,7 +35,7 @@ export const listClassifierRulesRoute = registerApiRoute('/classifier-rules', {
 export const getClassifierSnapshotRoute = registerApiRoute('/classifier-rules/:domain/:version', {
     method: 'GET',
     handler: async c => {
-        const admin = await requireAdmin(c.get('requestContext')?.get(MASTRA_RESOURCE_ID_KEY))
+        const admin = await requireAdmin(callerEmail(c.get('requestContext')))
         if (!admin) return c.json({ error: 'Forbidden' }, 403)
 
         const domain = parseDomain(c.req.param('domain'))
@@ -64,7 +64,7 @@ export const getClassifierSnapshotRoute = registerApiRoute('/classifier-rules/:d
 export const publishClassifierSnapshotRoute = registerApiRoute('/classifier-rules/:domain', {
     method: 'POST',
     handler: async c => {
-        const admin = await requireAdmin(c.get('requestContext')?.get(MASTRA_RESOURCE_ID_KEY))
+        const admin = await requireAdmin(callerEmail(c.get('requestContext')))
         if (!admin) return c.json({ error: 'Forbidden' }, 403)
 
         const domain = parseDomain(c.req.param('domain'))
@@ -98,7 +98,7 @@ export const publishClassifierSnapshotRoute = registerApiRoute('/classifier-rule
 export const activateClassifierVersionRoute = registerApiRoute('/classifier-rules/:domain/active', {
     method: 'PUT',
     handler: async c => {
-        const admin = await requireAdmin(c.get('requestContext')?.get(MASTRA_RESOURCE_ID_KEY))
+        const admin = await requireAdmin(callerEmail(c.get('requestContext')))
         if (!admin) return c.json({ error: 'Forbidden' }, 403)
 
         const domain = parseDomain(c.req.param('domain'))

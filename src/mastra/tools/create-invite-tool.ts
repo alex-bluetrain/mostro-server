@@ -1,5 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
+import { toolCallerEmail } from '@lib/caller-email'
 import { createInvite } from '@lib/invites'
 import { getUserByResourceId } from '@business/identity'
 
@@ -16,7 +17,7 @@ export const createInviteTool = createTool({
         error: z.string().optional(),
     }),
     execute: async (input, context) => {
-        const resourceId = context?.agent?.resourceId
+        const resourceId = toolCallerEmail(context)
         if (!resourceId) {
             return { ok: false, error: 'caller identity not available' }
         }

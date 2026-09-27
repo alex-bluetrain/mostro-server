@@ -14,7 +14,6 @@ vi.mock('@business/repositories', () => ({
 import { createInviteRoute, listInvitesRoute } from './invites.route'
 import { getUserByResourceId } from '@business/identity'
 import { inviteRepository, userRepository } from '@business/repositories'
-import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
 import { nowUnix } from '@lib/unix-time'
 
 type Response = { body: any; status?: number }
@@ -23,7 +22,7 @@ function run(route: unknown, resourceId?: string, body?: unknown): Promise<Respo
     const c = {
         get: (key: string) =>
             key === 'requestContext'
-                ? { get: (k: string) => (k === MASTRA_RESOURCE_ID_KEY ? resourceId : undefined) }
+                ? { get: (k: string) => (k === 'user' && resourceId ? { email: resourceId } : undefined) }
                 : undefined,
         req: { json: async () => body },
         json: (b: unknown, status?: number) => ({ body: b, status }),

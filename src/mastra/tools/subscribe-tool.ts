@@ -1,5 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
+import { toolCallerEmail } from '@lib/caller-email'
 import { userRepository } from '@business/repositories'
 import { emailFromResourceId } from '@business/identity'
 
@@ -11,7 +12,7 @@ export const subscribeTool = createTool({
         subscribed: z.boolean(),
     }),
     execute: async (_input, context) => {
-        const email = emailFromResourceId(context?.agent?.resourceId ?? '')
+        const email = emailFromResourceId(toolCallerEmail(context) ?? '')
         if (!email) {
             return { subscribed: false }
         }

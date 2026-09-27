@@ -1,6 +1,7 @@
 import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
 import type { RequestContext } from '@mastra/core/request-context'
 import { userRepository } from '@business/repositories'
+import { callerEmail } from './caller-email'
 import { findChannelUser, defaultChannelUserDeps, type ChannelUserDeps } from './channel-user'
 import type { IUser } from '@business'
 
@@ -13,9 +14,10 @@ export const defaultRequestIdentityDeps: RequestIdentityDeps = {
     getUserByEmail: email => userRepository.findByEmail(email),
 }
 
-// Identity can come through two doors:
+// Identity can come through three doors:
 // - Web: the auth middleware puts the email (canonical resourceId) in
 //   MASTRA_RESOURCE_ID_KEY.
+// - Studio key: only the authenticated user (see callerEmail), no resourceId.
 // - Chat channels: the pipeline puts ChannelContext (platform + userId) under
 //   the 'channel' key before running the input processors.
 //
@@ -43,6 +45,10 @@ async function lookup(requestContext: RequestContext, deps: RequestIdentityDeps)
     if (typeof resourceId === 'string' && resourceId.includes('@')) {
         return deps.getUserByEmail(resourceId.trim().toLowerCase())
     }
+
+    // Authenticated caller without a memory scope (the Studio key).
+    const email = callerEmail(requestContext)
+    if (email) return deps.getUserByEmail(email)
 
     const channel = requestContext.get('channel') as { platform?: string; userId?: string } | undefined
     if (channel?.platform && channel.userId) {

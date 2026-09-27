@@ -26,22 +26,20 @@ export function createServerAuth() {
         ? new SimpleAuth({
             tokens: {
                 [appConfig.STUDIO_API_KEY]: {
-                    // The id IS the resourceId (see mapUserToResourceId below). When
-                    // ADMIN_EMAIL is set, we use it so the token resolves to the real IUser
-                    // in Mongo (resolveRequestUser only looks up ids containing '@'):
-                    // that way /users/me responds and isRequestAdmin sees the real role, instead
-                    // of the literal 'admin' which matches no business user.
+                    // Identity only: with ADMIN_EMAIL the key resolves to the real IUser in
+                    // Mongo (see callerEmail), so /users/me, admin checks and tools see the
+                    // real admin instead of the literal 'admin'.
                     id: appConfig.ADMIN_EMAIL ?? 'admin',
+                    email: appConfig.ADMIN_EMAIL,
                     name: appConfig.ADMIN_NAME ?? 'Admin',
                     role: 'admin',
                 },
             },
             public: [TELEGRAM_CHANNEL_WEBHOOK],
-            // Without this, SimpleAuth authenticates but doesn't populate MASTRA_RESOURCE_ID_KEY,
-            // and webThreadMiddleware rejects with 401. The resource id pins the admin's
-            // memory (with ADMIN_EMAIL, it shares thread/memory with the same user
-            // logged in via Google; without it, a separate 'admin' thread).
-            mapUserToResourceId: user => user.id,
+            // No mapUserToResourceId on purpose: it would scope every request to the
+            // admin's email, and Mastra would then hide the household runs (they have
+            // no owner) from Studio. Chat routes derive their memory scope themselves
+            // in webThreadMiddleware.
         })
         : undefined
 

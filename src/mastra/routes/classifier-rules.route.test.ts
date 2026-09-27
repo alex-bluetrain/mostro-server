@@ -21,7 +21,6 @@ import {
 } from './classifier-rules.route'
 import { getUserByResourceId } from '@business/identity'
 import { classifierRepository } from '@business/repositories'
-import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
 
 type Response = { body: any; status?: number }
 
@@ -32,7 +31,7 @@ function run(
     const c = {
         get: (key: string) =>
             key === 'requestContext'
-                ? { get: (k: string) => (k === MASTRA_RESOURCE_ID_KEY ? opts.resourceId : undefined) }
+                ? { get: (k: string) => (k === 'user' && opts.resourceId ? { email: opts.resourceId } : undefined) }
                 : undefined,
         req: {
             param: (name: string) => opts.params?.[name],

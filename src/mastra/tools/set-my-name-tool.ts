@@ -1,4 +1,5 @@
 import { createTool } from '@mastra/core/tools'
+import { toolCallerEmail } from '@lib/caller-email'
 import { z } from 'zod'
 import { setUserNameByResourceId } from '@business/identity'
 
@@ -12,7 +13,7 @@ export const setMyNameTool = createTool({
         ok: z.boolean(),
     }),
     execute: async (input, context) => {
-        const resourceId = context?.agent?.resourceId
+        const resourceId = toolCallerEmail(context)
         if (!resourceId) {
             return { ok: false }
         }

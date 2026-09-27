@@ -1,5 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
+import { toolCallerEmail } from '@lib/caller-email'
 import { userRepository } from '@business/repositories'
 import { emailFromResourceId } from '@business/identity'
 import { appLogger } from '@lib/app-logger'
@@ -21,7 +22,7 @@ export const linkDiscordTool = createTool({
         reason: z.enum(['ok', 'unknown-user', 'already-taken']),
     }),
     execute: async ({ discordId }, context) => {
-        const email = emailFromResourceId(context?.agent?.resourceId ?? '')
+        const email = emailFromResourceId(toolCallerEmail(context) ?? '')
         if (!email) {
             return { linked: false, reason: 'unknown-user' as const }
         }

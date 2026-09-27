@@ -1,4 +1,5 @@
 import { createTool } from '@mastra/core/tools'
+import { toolCallerEmail } from '@lib/caller-email'
 import { z } from 'zod'
 import { getUserByResourceId } from '@business/identity'
 import { startMedsOrder } from '@lib/meds-run'
@@ -16,7 +17,7 @@ export const requestMedsTool = createTool({
         if (!context?.mastra) {
             throw new Error('mastra instance not available in tool context')
         }
-        const resourceId = context?.agent?.resourceId
+        const resourceId = toolCallerEmail(context)
         const user = resourceId ? await getUserByResourceId(resourceId) : null
         if (!user?.name?.trim()) {
             return {

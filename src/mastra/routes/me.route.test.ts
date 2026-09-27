@@ -6,7 +6,6 @@ vi.mock('@business/identity', () => ({
 
 import { meRoute } from './me.route'
 import { getUserByResourceId } from '@business/identity'
-import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
 
 // The handler only uses `get('requestContext')` and `json()`, so the Hono context
 // can be faked with those two things and the test doesn't start a server.
@@ -14,7 +13,7 @@ function run(resourceId?: string): Promise<{ body: unknown; status?: number }> {
     const c = {
         get: (key: string) =>
             key === 'requestContext'
-                ? { get: (k: string) => (k === MASTRA_RESOURCE_ID_KEY ? resourceId : undefined) }
+                ? { get: (k: string) => (k === 'user' && resourceId ? { email: resourceId } : undefined) }
                 : undefined,
         json: (body: unknown, status?: number) => ({ body, status }),
     }
