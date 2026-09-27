@@ -27,6 +27,27 @@ internal agent classifies supplier emails.
 - **Invite-only**: users join by invite; every channel shares one identity, keyed by Google email.
 - **Rich chat**: streams generative UI (AG-UI / OpenUI) to the app.
 
+## Design decisions
+
+- **One agent instead of a supervisor with sub-agents.** The first version routed each request to a
+  per-domain agent (diapers, meds, refunds). Every hop cost tokens and latency, and the dynamic prompts
+  broke caching. Now a single agent keeps a small, stable prompt that can be cached, and it loads a
+  domain's skill and tools only when the conversation needs them.
+- **Email is the integration.** Suppliers have no API; they answer emails. Each order is a workflow that
+  suspends after sending the request and resumes when the reply arrives. That makes long waits (days)
+  durable and restart-safe.
+- **An LLM classifies replies, driven by rules that are data, not code.** Classifier rules are stored in
+  Mongo as immutable, versioned snapshots behind an "active" pointer. Rules change without a deploy, and
+  rolling back is just moving the pointer. Every processed email gets an outcome label, so a failure is
+  retried on the next poll instead of lost silently.
+- **One identity across channels.** Telegram, Discord and the app all resolve to the user's Google email,
+  so memory and history are shared. Android sends Google's `id_token`, verified against Google's keys; the
+  web app logs in via a Google redirect and keeps an HttpOnly session cookie.
+- **Invite-only, checked before the model.** Unknown senders are dropped by a gate before the agent runs,
+  so strangers cost no tokens and never touch memory.
+- **Model-facing text stays in Spanish.** Code, comments and docs are in English. Prompts, skills, tool
+  descriptions and supplier emails are in Spanish on purpose, because the users and suppliers speak Spanish.
+
 ## Quick start
 
 Requires Node.js ≥ 22.13, pnpm and MongoDB.
@@ -48,6 +69,7 @@ pnpm dev               # API + Mastra Studio on http://localhost:4111
 
 - [Setup & operations guide](docs/GUIDE.md)
 - [Identity & invites](docs/identity.md)
+- [Web session (cookie login)](docs/web-session.md)
 - [Inbox pipeline](docs/inbox-pipeline.md)
 - [Naming conventions](docs/NAMING-CONVENTIONS.md)
 - [CI/CD](CI-CD.md)
