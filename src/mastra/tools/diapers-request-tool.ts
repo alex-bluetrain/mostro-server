@@ -1,8 +1,7 @@
 import { createTool } from '@mastra/core/tools'
-import { toolCallerEmail } from '@lib/caller-email'
 import { z } from 'zod'
 import { startDiapers } from '@lib/diapers-run'
-import { getUserByResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 
 export const requestDiapersTool = createTool({
     id: 'request-diapers',
@@ -17,8 +16,7 @@ export const requestDiapersTool = createTool({
         if (!context?.mastra) {
             throw new Error('mastra instance not available in tool context')
         }
-        const resourceId = toolCallerEmail(context)
-        const user = resourceId ? await getUserByResourceId(resourceId) : null
+        const user = await resolveRequestUser(context?.requestContext)
         if (!user?.name?.trim()) {
             return {
                 ok: false,

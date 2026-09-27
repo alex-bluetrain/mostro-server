@@ -3,8 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('@config/app.config', () => ({
     appConfig: { TELEGRAM_BOT_USERNAME: 'mostro_bot' },
 }))
-vi.mock('@business/identity', () => ({
-    getUserByResourceId: vi.fn(),
+vi.mock('@lib/request-identity', () => ({
+    resolveRequestUser: vi.fn(),
 }))
 vi.mock('@business/repositories', () => ({
     inviteRepository: { list: vi.fn(), create: vi.fn() },
@@ -12,7 +12,7 @@ vi.mock('@business/repositories', () => ({
 }))
 
 import { createInviteRoute, listInvitesRoute } from './invites.route'
-import { getUserByResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 import { inviteRepository, userRepository } from '@business/repositories'
 import { nowUnix } from '@lib/unix-time'
 
@@ -35,12 +35,12 @@ const admin = { email: 'admin@gmail.com', name: 'Admin', role: 'admin', addedAt:
 describe('invites routes', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        vi.mocked(getUserByResourceId).mockResolvedValue(admin as any)
+        vi.mocked(resolveRequestUser).mockResolvedValue(admin as any)
         vi.mocked(userRepository.findByEmail).mockResolvedValue(null)
     })
 
     it('403s a member: the auth provider proves invitation, not role', async () => {
-        vi.mocked(getUserByResourceId).mockResolvedValue({ ...admin, role: 'member' } as any)
+        vi.mocked(resolveRequestUser).mockResolvedValue({ ...admin, role: 'member' } as any)
 
         const list = await run(listInvitesRoute, 'member@gmail.com')
         const create = await run(createInviteRoute, 'member@gmail.com', { email: 'new@gmail.com' })
@@ -50,11 +50,12 @@ describe('invites routes', () => {
         expect(inviteRepository.create).not.toHaveBeenCalled()
     })
 
-    it('403s when the request carries no resource id', async () => {
+    it('403s when the caller cannot be resolved', async () => {
+        vi.mocked(resolveRequestUser).mockResolvedValue(null)
+
         const response = await run(listInvitesRoute, undefined)
 
         expect(response.status).toBe(403)
-        expect(getUserByResourceId).not.toHaveBeenCalled()
     })
 
     it('lists invites with their derived status and redeem link', async () => {

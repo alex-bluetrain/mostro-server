@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('@business/identity', () => ({
-    getUserByResourceId: vi.fn(),
+vi.mock('@lib/request-identity', () => ({
+    resolveRequestUser: vi.fn(),
 }))
 
 import { meRoute } from './me.route'
-import { getUserByResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 
 // The handler only uses `get('requestContext')` and `json()`, so the Hono context
 // can be faked with those two things and the test doesn't start a server.
@@ -27,7 +27,7 @@ describe('meRoute', () => {
     })
 
     it('returns the caller identity, role and preferences', async () => {
-        vi.mocked(getUserByResourceId).mockResolvedValue({
+        vi.mocked(resolveRequestUser).mockResolvedValue({
             email: 'ana@gmail.com',
             name: 'Ana',
             role: 'admin',
@@ -37,7 +37,6 @@ describe('meRoute', () => {
 
         const response = await run('ana@gmail.com')
 
-        expect(getUserByResourceId).toHaveBeenCalledWith('ana@gmail.com')
         expect(response.body).toEqual({
             email: 'ana@gmail.com',
             name: 'Ana',
@@ -47,7 +46,7 @@ describe('meRoute', () => {
     })
 
     it('defaults notifications to false for users predating the preferences field', async () => {
-        vi.mocked(getUserByResourceId).mockResolvedValue({
+        vi.mocked(resolveRequestUser).mockResolvedValue({
             email: 'ana@gmail.com',
             name: 'Ana',
             role: 'member',
@@ -59,18 +58,11 @@ describe('meRoute', () => {
         expect(response.body).toMatchObject({ preferences: { notifications: false } })
     })
 
-    it('401s when the request context has no resource id', async () => {
-        const response = await run(undefined)
-
-        expect(response.status).toBe(401)
-        expect(getUserByResourceId).not.toHaveBeenCalled()
-    })
-
-    it('404s when the resource id resolves to no user', async () => {
-        vi.mocked(getUserByResourceId).mockResolvedValue(null)
+    it('401s when the caller cannot be resolved', async () => {
+        vi.mocked(resolveRequestUser).mockResolvedValue(null)
 
         const response = await run('ghost@gmail.com')
 
-        expect(response.status).toBe(404)
+        expect(response.status).toBe(401)
     })
 })

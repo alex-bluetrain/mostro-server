@@ -1,13 +1,12 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
-import { toolCallerEmail } from '@lib/caller-email'
 import { userRepository } from '@business/repositories'
-import { emailFromResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 import { appLogger } from '@lib/app-logger'
 
 // Sign-up is still via Telegram: this tool only adds Discord as an extra
 // channel on an identity that already exists. That's why it doesn't create users or touch
-// invites, and the email comes from the resourceId (we don't ask the model for it).
+// invites, and the email comes from the verified caller (we don't ask the model for it).
 export const linkDiscordTool = createTool({
     id: 'link-discord',
     description:
@@ -22,7 +21,7 @@ export const linkDiscordTool = createTool({
         reason: z.enum(['ok', 'unknown-user', 'already-taken']),
     }),
     execute: async ({ discordId }, context) => {
-        const email = emailFromResourceId(toolCallerEmail(context) ?? '')
+        const email = (await resolveRequestUser(context?.requestContext))?.email
         if (!email) {
             return { linked: false, reason: 'unknown-user' as const }
         }

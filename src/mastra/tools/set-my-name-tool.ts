@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools'
-import { toolCallerEmail } from '@lib/caller-email'
 import { z } from 'zod'
-import { setUserNameByResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
+import { userRepository } from '@business/repositories'
 
 export const setMyNameTool = createTool({
     id: 'set-my-name',
@@ -13,11 +13,11 @@ export const setMyNameTool = createTool({
         ok: z.boolean(),
     }),
     execute: async (input, context) => {
-        const resourceId = toolCallerEmail(context)
-        if (!resourceId) {
+        const user = await resolveRequestUser(context?.requestContext)
+        if (!user) {
             return { ok: false }
         }
-        const ok = await setUserNameByResourceId(resourceId, input.name)
+        const ok = await userRepository.setUserName(user.email, input.name)
         return { ok }
     },
 })

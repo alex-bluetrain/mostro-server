@@ -1,8 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
-import { toolCallerEmail } from '@lib/caller-email'
 import { userRepository } from '@business/repositories'
-import { emailFromResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 
 export const subscribeTool = createTool({
     id: 'subscribe-notifications',
@@ -12,7 +11,7 @@ export const subscribeTool = createTool({
         subscribed: z.boolean(),
     }),
     execute: async (_input, context) => {
-        const email = emailFromResourceId(toolCallerEmail(context) ?? '')
+        const email = (await resolveRequestUser(context?.requestContext))?.email
         if (!email) {
             return { subscribed: false }
         }

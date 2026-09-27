@@ -1,33 +1,39 @@
-import { MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
 import type { RequestContext } from '@mastra/core/request-context'
 import { userRepository } from '@business/repositories'
-import { callerEmail } from './caller-email'
-import { findChannelUser, defaultChannelUserDeps, type ChannelUserDeps } from './channel-user'
 import type { IUser } from '@business'
 
-export type RequestIdentityDeps = ChannelUserDeps & {
+export type RequestIdentityDeps = {
     getUserByEmail: (email: string) => Promise<IUser | null>
 }
 
 export const defaultRequestIdentityDeps: RequestIdentityDeps = {
-    ...defaultChannelUserDeps,
     getUserByEmail: email => userRepository.findByEmail(email),
 }
 
-// Identity can come through three doors:
-// - Web: the auth middleware puts the email (canonical resourceId) in
-//   MASTRA_RESOURCE_ID_KEY.
-// - Studio key: only the authenticated user (see callerEmail), no resourceId.
-// - Chat channels: the pipeline puts ChannelContext (platform + userId) under
-//   the 'channel' key before running the input processors.
+// Key where a channel entry point records the user it already verified.
+export const CALLER_KEY = 'mostro.caller'
+
+// Who is calling. Recorded where the credentials are checked, never inferred
+// later:
+// - HTTP (Google id_token, web session cookie, Studio key): Mastra's auth step
+//   stores the verified user under 'user'; its email is the identity.
+// - Chat channels (Telegram, Discord): the channel gate already found the user
+//   and stamps it under CALLER_KEY.
 //
-// The lookup is cached per RequestContext: the ToolSearchProcessor filter
-// runs for every candidate tool in a search, and the skills resolver runs
-// separately — without a cache it'd be N Mongo hits per request.
-const cache = new WeakMap<RequestContext, Promise<IUser | null>>()
+// Deliberately NOT MASTRA_RESOURCE_ID_KEY: that is whose memory the thread
+// belongs to, a different question (Studio chat, for one, sets it to the agent id).
+export function callerEmail(requestContext: Pick<RequestContext, 'get'> | undefined): string | undefined {
+    const user = requestContext?.get('user') as { email?: unknown } | undefined
+    const email = typeof user?.email === 'string' ? user.email.trim().toLowerCase() : ''
+    return email || undefined
+}
+
+// Cached per RequestContext: the ToolSearchProcessor filter runs for every
+// candidate tool, plus the skills resolver and the tools themselves.
+const cache = new WeakMap<object, Promise<IUser | null>>()
 
 export function resolveRequestUser(
-    requestContext: RequestContext | undefined,
+    requestContext: Pick<RequestContext, 'get'> | undefined,
     deps: RequestIdentityDeps = defaultRequestIdentityDeps
 ): Promise<IUser | null> {
     if (!requestContext) return Promise.resolve(null)
@@ -40,26 +46,16 @@ export function resolveRequestUser(
     return promise
 }
 
-async function lookup(requestContext: RequestContext, deps: RequestIdentityDeps): Promise<IUser | null> {
-    const resourceId = requestContext.get(MASTRA_RESOURCE_ID_KEY)
-    if (typeof resourceId === 'string' && resourceId.includes('@')) {
-        return deps.getUserByEmail(resourceId.trim().toLowerCase())
-    }
+async function lookup(requestContext: Pick<RequestContext, 'get'>, deps: RequestIdentityDeps): Promise<IUser | null> {
+    const stamped = requestContext.get(CALLER_KEY) as IUser | undefined
+    if (stamped) return stamped
 
-    // Authenticated caller without a memory scope (the Studio key).
     const email = callerEmail(requestContext)
-    if (email) return deps.getUserByEmail(email)
-
-    const channel = requestContext.get('channel') as { platform?: string; userId?: string } | undefined
-    if (channel?.platform && channel.userId) {
-        return findChannelUser(deps, channel.platform, channel.userId)
-    }
-
-    return null
+    return email ? deps.getUserByEmail(email) : null
 }
 
 export async function isRequestAdmin(
-    requestContext: RequestContext | undefined,
+    requestContext: Pick<RequestContext, 'get'> | undefined,
     deps: RequestIdentityDeps = defaultRequestIdentityDeps
 ): Promise<boolean> {
     const user = await resolveRequestUser(requestContext, deps)

@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('@business/identity', () => ({
-  getUserByResourceId: vi.fn(),
+vi.mock('@lib/request-identity', () => ({
+  resolveRequestUser: vi.fn(),
 }))
 vi.mock('@lib/diapers-run', () => ({
   startDiapers: vi.fn(),
 }))
 
 import { requestDiapersTool } from './diapers-request-tool'
-import { getUserByResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 import { startDiapers } from '@lib/diapers-run'
 
 const ctx = { mastra: {}, agent: { resourceId: 'ana@gmail.com' } }
@@ -23,21 +23,21 @@ describe('requestDiapersTool', () => {
   })
 
   it('rejects with requester_unidentified when the user has an empty name', async () => {
-    vi.mocked(getUserByResourceId).mockResolvedValue({ email: 'ana@gmail.com', name: '', role: 'member', addedAt: 1 } as any)
+    vi.mocked(resolveRequestUser).mockResolvedValue({ email: 'ana@gmail.com', name: '', role: 'member', addedAt: 1 } as any)
     const result = await run({ size: 'M', year: 2026, month: 7 })
     expect(result).toMatchObject({ ok: false, reason: 'requester_unidentified' })
     expect(startDiapers).not.toHaveBeenCalled()
   })
 
   it('rejects with requester_unidentified when the user cannot be resolved', async () => {
-    vi.mocked(getUserByResourceId).mockResolvedValue(null)
+    vi.mocked(resolveRequestUser).mockResolvedValue(null)
     const result = await run({ size: 'M', year: 2026, month: 7 })
     expect(result).toMatchObject({ ok: false, reason: 'requester_unidentified' })
     expect(startDiapers).not.toHaveBeenCalled()
   })
 
   it('starts the order with the resolved name as requestedBy', async () => {
-    vi.mocked(getUserByResourceId).mockResolvedValue({ email: 'ana@gmail.com', name: 'Ana', role: 'member', addedAt: 1 } as any)
+    vi.mocked(resolveRequestUser).mockResolvedValue({ email: 'ana@gmail.com', name: 'Ana', role: 'member', addedAt: 1 } as any)
     await run({ size: 'M', year: 2026, month: 7 })
     expect(startDiapers).toHaveBeenCalledWith({}, { size: 'M', year: 2026, month: 7, requestedBy: 'Ana' })
   })

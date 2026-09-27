@@ -1,5 +1,4 @@
 import { registerApiRoute } from '@mastra/core/server'
-import { callerEmail } from '@lib/caller-email'
 import { inviteRepository } from '@business/repositories'
 import { createInvite, inviteLink, inviteStatus } from '@lib/invites'
 import { nowUnix } from '@lib/unix-time'
@@ -8,7 +7,7 @@ import { requireAdmin } from '@lib/require-admin'
 export const listInvitesRoute = registerApiRoute('/invites', {
     method: 'GET',
     handler: async c => {
-        const admin = await requireAdmin(callerEmail(c.get('requestContext')))
+        const admin = await requireAdmin(c.get('requestContext'))
         if (!admin) return c.json({ error: 'Forbidden' }, 403)
 
         const now = nowUnix()
@@ -32,7 +31,7 @@ export const listInvitesRoute = registerApiRoute('/invites', {
 export const createInviteRoute = registerApiRoute('/invites', {
     method: 'POST',
     handler: async c => {
-        const admin = await requireAdmin(callerEmail(c.get('requestContext')))
+        const admin = await requireAdmin(c.get('requestContext'))
         if (!admin) return c.json({ error: 'Forbidden' }, 403)
 
         const body = await c.req.json().catch(() => null)

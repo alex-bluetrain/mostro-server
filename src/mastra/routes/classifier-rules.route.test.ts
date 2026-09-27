@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('@business/identity', () => ({
-    getUserByResourceId: vi.fn(),
+vi.mock('@lib/request-identity', () => ({
+    resolveRequestUser: vi.fn(),
 }))
 vi.mock('@business/repositories', () => ({
     classifierRepository: {
@@ -19,7 +19,7 @@ import {
     publishClassifierSnapshotRoute,
     activateClassifierVersionRoute,
 } from './classifier-rules.route'
-import { getUserByResourceId } from '@business/identity'
+import { resolveRequestUser } from '@lib/request-identity'
 import { classifierRepository } from '@business/repositories'
 
 type Response = { body: any; status?: number }
@@ -51,13 +51,13 @@ const rules = {
 describe('classifier rules routes', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        vi.mocked(getUserByResourceId).mockResolvedValue(admin as any)
+        vi.mocked(resolveRequestUser).mockResolvedValue(admin as any)
         vi.mocked(classifierRepository.listActiveVersions).mockResolvedValue({ diapers: 2 })
         vi.mocked(classifierRepository.listSnapshots).mockResolvedValue([])
     })
 
     it('403s a member on every route: the role gate is here, not in the UI', async () => {
-        vi.mocked(getUserByResourceId).mockResolvedValue({ ...admin, role: 'member' } as any)
+        vi.mocked(resolveRequestUser).mockResolvedValue({ ...admin, role: 'member' } as any)
         const as = { resourceId: 'member@gmail.com', params: { domain: 'diapers', version: '1' }, body: { rules, changelog: 'x', version: 1 } }
 
         const responses = await Promise.all([

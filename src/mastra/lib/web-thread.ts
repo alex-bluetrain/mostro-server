@@ -1,7 +1,7 @@
 import { MASTRA_RESOURCE_ID_KEY, MASTRA_THREAD_ID_KEY } from '@mastra/core/request-context'
 import type { Middleware } from '@mastra/core/server'
 import { channelThreadId } from './channel-thread-id'
-import { callerEmail } from './caller-email'
+import { callerEmail } from './request-identity'
 
 // `Middleware` is the union of the handler and its `path` form; routes only
 // accept the bare handler.

@@ -1,41 +1,47 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context'
-import { isRequestAdmin, resolveRequestUser, type RequestIdentityDeps } from './request-identity'
+import { CALLER_KEY, isRequestAdmin, resolveRequestUser, type RequestIdentityDeps } from './request-identity'
 import type { IUser } from '@business'
 
 const admin = { email: 'ana@example.com', name: 'Ana', role: 'admin' } as IUser
 const member = { email: 'juan@example.com', name: 'Juan', role: 'member' } as IUser
 
-function depsWith(overrides: Partial<RequestIdentityDeps> = {}): RequestIdentityDeps {
-    return {
-        getUserByEmail: vi.fn().mockResolvedValue(null),
-        getUserByTelegramId: vi.fn().mockResolvedValue(null),
-        getUserByDiscordId: vi.fn().mockResolvedValue(null),
-        ...overrides,
-    }
+function depsWith(getUserByEmail = vi.fn().mockResolvedValue(null)): RequestIdentityDeps {
+    return { getUserByEmail }
+}
+
+function httpContext(email: string): RequestContext {
+    const requestContext = new RequestContext()
+    requestContext.set('user', { email })
+    return requestContext
 }
 
 describe('resolveRequestUser', () => {
-    it('resolves by email when the canonical resourceId is set (web)', async () => {
-        const deps = depsWith({ getUserByEmail: vi.fn().mockResolvedValue(admin) })
-        const requestContext = new RequestContext()
-        requestContext.set(MASTRA_RESOURCE_ID_KEY, 'Ana@Example.com ')
+    it('resolves the verified HTTP user by email (Google, web session, Studio key)', async () => {
+        const deps = depsWith(vi.fn().mockResolvedValue(admin))
 
-        const user = await resolveRequestUser(requestContext, deps)
+        const user = await resolveRequestUser(httpContext('Ana@Example.com '), deps)
 
         expect(user).toBe(admin)
         expect(deps.getUserByEmail).toHaveBeenCalledWith('ana@example.com')
     })
 
-    it('resolves by channel (platform + userId) when there is no resourceId', async () => {
-        const deps = depsWith({ getUserByTelegramId: vi.fn().mockResolvedValue(member) })
+    it('returns the user stamped by the channel gate without a lookup', async () => {
+        const deps = depsWith()
         const requestContext = new RequestContext()
-        requestContext.set('channel', { platform: 'telegram', userId: '12345' })
+        requestContext.set(CALLER_KEY, member)
 
-        const user = await resolveRequestUser(requestContext, deps)
+        expect(await resolveRequestUser(requestContext, deps)).toBe(member)
+        expect(deps.getUserByEmail).not.toHaveBeenCalled()
+    })
 
-        expect(user).toBe(member)
-        expect(deps.getUserByTelegramId).toHaveBeenCalledWith('12345')
+    it('ignores the memory resourceId: it is not an identity', async () => {
+        const deps = depsWith(vi.fn().mockResolvedValue(admin))
+        const requestContext = new RequestContext()
+        requestContext.set(MASTRA_RESOURCE_ID_KEY, 'ana@example.com')
+
+        expect(await resolveRequestUser(requestContext, deps)).toBeNull()
+        expect(deps.getUserByEmail).not.toHaveBeenCalled()
     })
 
     it('returns null without requestContext or identity (metadata reads)', async () => {
@@ -46,31 +52,22 @@ describe('resolveRequestUser', () => {
     })
 
     it('caches the lookup per RequestContext (the filter runs per candidate)', async () => {
-        const getUserByEmail = vi.fn().mockResolvedValue(admin)
-        const deps = depsWith({ getUserByEmail })
-        const requestContext = new RequestContext()
-        requestContext.set(MASTRA_RESOURCE_ID_KEY, 'ana@example.com')
+        const deps = depsWith(vi.fn().mockResolvedValue(admin))
+        const requestContext = httpContext('ana@example.com')
 
         await resolveRequestUser(requestContext, deps)
         await resolveRequestUser(requestContext, deps)
 
-        expect(getUserByEmail).toHaveBeenCalledTimes(1)
+        expect(deps.getUserByEmail).toHaveBeenCalledTimes(1)
     })
 })
 
 describe('isRequestAdmin', () => {
     it('true only for the admin role', async () => {
-        const adminCtx = new RequestContext()
-        adminCtx.set(MASTRA_RESOURCE_ID_KEY, 'ana@example.com')
-        const memberCtx = new RequestContext()
-        memberCtx.set(MASTRA_RESOURCE_ID_KEY, 'juan@example.com')
+        const deps = depsWith(vi.fn(async (email: string) => (email === admin.email ? admin : member)))
 
-        const deps = depsWith({
-            getUserByEmail: vi.fn(async (email: string) => (email === admin.email ? admin : member)),
-        })
-
-        expect(await isRequestAdmin(adminCtx, deps)).toBe(true)
-        expect(await isRequestAdmin(memberCtx, deps)).toBe(false)
+        expect(await isRequestAdmin(httpContext('ana@example.com'), deps)).toBe(true)
+        expect(await isRequestAdmin(httpContext('juan@example.com'), deps)).toBe(false)
         expect(await isRequestAdmin(undefined, deps)).toBe(false)
     })
 })
