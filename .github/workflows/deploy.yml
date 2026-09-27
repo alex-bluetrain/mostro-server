@@ -89,7 +89,7 @@ jobs:
                 echo 'IMAGE_TAG=$VERSION' | sudo tee '$DEPLOY_DIR/.env' >/dev/null && \
                 cd '$DEPLOY_DIR' && \
                 sudo docker compose pull && \
-                sudo docker compose up -d --remove-orphans"; then
+                sudo docker compose up -d --remove-orphans --force-recreate"; then
               exit 0
             fi
             echo "SSH failed (attempt $attempt/3), retrying in 10s..."
