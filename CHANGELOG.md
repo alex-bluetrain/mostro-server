@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.14.0...v1.15.0) (2026-09-27)
+
+
+### Features
+
+* **users:** store language and theme in user preferences ([573bbdd](https://github.com/alex-bluetrain/mostro-server/commit/573bbddb0e44d61209ed3f7c4c51bee46db8778a))
+
 ## [1.14.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.13.0...v1.14.0) (2026-09-27)
 
 
