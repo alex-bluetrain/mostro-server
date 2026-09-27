@@ -49,7 +49,8 @@ export function webSessionConfig(): WebSessionConfig | undefined {
 }
 
 export function readSession(cookies: string | null | undefined, config: WebSessionConfig, now = Date.now()) {
-    return verify<SessionPayload>(readCookie(cookies, SESSION_COOKIE), config.cookieSecret, now)
+    const session = verify<SessionPayload>(readCookie(cookies, SESSION_COOKIE), config.cookieSecret, now)
+    return typeof session?.email === 'string' && session.email.includes('@') ? session : null
 }
 
 export function sessionCookie(email: string, config: WebSessionConfig, now = Date.now()): string {

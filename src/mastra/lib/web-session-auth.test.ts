@@ -53,6 +53,12 @@ describe('web session cookie', () => {
         expect(body).toBeTruthy()
     })
 
+    it('only accepts signed payloads that carry an email', async () => {
+        const { sign } = await import('./web-session')
+        const other = sign({ state: 'abc', exp: Math.floor(Date.now() / 1000) + 600 }, config.cookieSecret)
+        expect(readSession(`mostro_session=${other}`, config)).toBeNull()
+    })
+
     it('expires after 30 days', () => {
         const now = Date.now()
         const cookie = cookieOf(sessionCookie('ana@example.com', config, now))
