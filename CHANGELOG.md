@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.15.0...v1.16.0) (2026-09-28)
+
+
+### Features
+
+* **chat:** give the Android app its own chat thread ([2bb95c7](https://github.com/alex-bluetrain/mostro-server/commit/2bb95c77b207aee0888ec448507e673583d4a2db))
+* **chat:** require X-Mostro-Client on chat routes ([c0535d8](https://github.com/alex-bluetrain/mostro-server/commit/c0535d88c9fbbadbbccb62904542bc7648a2af97))
+
 ## [1.15.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.14.0...v1.15.0) (2026-09-27)
 
 
