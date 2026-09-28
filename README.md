@@ -1,7 +1,7 @@
 <h1 align="center">mostro-server</h1>
 
 <p align="center">
-  <img src="img/agents.png" alt="Mostro Banner" />
+  <img src="img/mostro-banner.png" alt="Mostro Banner" />
 </p>
 
 <p align="center">
