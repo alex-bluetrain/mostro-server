@@ -71,14 +71,13 @@ await ensureClassifierSeed();
 export const mastra = new Mastra({
     server: {
         auth: createServerAuth(),
-        cors: corsOrigins.length
-            ? {
-                origin: corsOrigins,
-                credentials: true,
-                // Merged with Mastra's defaults; adds the chat client header (web-thread.ts).
-                allowHeaders: [CLIENT_HEADER],
-            }
-            : undefined,
+        cors: {
+            // Only set when a dev origin is configured; otherwise Mastra's
+            // own default (echo request origin + credentials) applies.
+            ...(corsOrigins.length ? { origin: corsOrigins, credentials: true } : {}),
+            // Merged with Mastra's defaults; adds the chat client header (web-thread.ts).
+            allowHeaders: [CLIENT_HEADER],
+        },
         middleware: [sessionRenewalMiddleware],
         // Exposes every agent in AI SDK format (Assistant UI protocol). Not used
         // by mostro-app (which uses the AG-UI/OpenUI route); kept for now.
