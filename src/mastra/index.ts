@@ -22,7 +22,7 @@ import { diapersPollWorkflow } from './workflows/diapers-poll/diapers-poll.workf
 import { medsPollWorkflow } from './workflows/meds-poll/meds-poll.workflow';
 import { refundsPollWorkflow } from './workflows/refunds-poll/refunds-poll.workflow';
 import { inboxClassifierAgent } from './agents/inbox-classifier-agent';
-import { webThreadMiddleware } from './lib/web-thread';
+import { CLIENT_HEADER, webThreadMiddleware } from './lib/web-thread';
 import { meRoute, updateMyPreferencesRoute } from './routes/me.route';
 import { workflowsOverviewRoute } from './routes/workflows-overview.route';
 import { createInviteRoute, listInvitesRoute } from './routes/invites.route';
@@ -75,6 +75,8 @@ export const mastra = new Mastra({
             ? {
                 origin: corsOrigins,
                 credentials: true,
+                // Merged with Mastra's defaults; adds the chat client header (web-thread.ts).
+                allowHeaders: [CLIENT_HEADER],
             }
             : undefined,
         middleware: [sessionRenewalMiddleware],

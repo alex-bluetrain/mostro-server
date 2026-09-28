@@ -14,11 +14,12 @@ export const CHANNEL_KEY = 'mostro.channel'
 
 // The web and Android apps share this door but keep their own thread: with no
 // sync between them, one thread would interleave two open conversations.
-// Clients only pick among their own threads; anything unknown is web.
+// Every client must name itself; iOS will get its own `ios` value when it ships.
 export const CLIENT_HEADER = 'X-Mostro-Client'
+const CLIENT_CHANNELS = ['web', 'android'] as const satisfies readonly ThreadChannel[]
 
-function clientThreadChannel(client: string | undefined): ThreadChannel {
-    return client === 'android' ? 'android' : 'web'
+function clientThreadChannel(client: string | undefined): ThreadChannel | undefined {
+    return CLIENT_CHANNELS.find((channel) => channel === client)
 }
 
 export const webThreadMiddleware: MiddlewareHandler = async (c, next) => {
@@ -31,9 +32,12 @@ export const webThreadMiddleware: MiddlewareHandler = async (c, next) => {
         return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    requestContext.set(MASTRA_RESOURCE_ID_KEY, resourceId)
-
     const channel = clientThreadChannel(c.req.header(CLIENT_HEADER))
+    if (!channel) {
+        return c.json({ error: `${CLIENT_HEADER} must be one of: ${CLIENT_CHANNELS.join(', ')}` }, 400)
+    }
+
+    requestContext.set(MASTRA_RESOURCE_ID_KEY, resourceId)
     requestContext.set(MASTRA_THREAD_ID_KEY, channelThreadId(resourceId, channel))
     requestContext.set(CHANNEL_KEY, 'web')
     await next()

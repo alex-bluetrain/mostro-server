@@ -13,7 +13,7 @@ function contextWith(entries: Record<string, unknown>, headers: Record<string, s
 
 describe('webThreadMiddleware', () => {
     it('derives the thread from the resourceId set by auth', async () => {
-        const c = contextWith({ [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com' })
+        const c = contextWith({ [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com' }, { [CLIENT_HEADER]: 'web' })
         const next = vi.fn()
 
         await webThreadMiddleware(c, next)
@@ -25,10 +25,13 @@ describe('webThreadMiddleware', () => {
     // The thread is computed from the token, not the body: sending someone else's identity
     // doesn't change which memory the conversation goes into.
     it('ignores a thread sent by the client', async () => {
-        const c = contextWith({
-            [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com',
-            [MASTRA_THREAD_ID_KEY]: 'victima@example.com:web',
-        })
+        const c = contextWith(
+            {
+                [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com',
+                [MASTRA_THREAD_ID_KEY]: 'victima@example.com:web',
+            },
+            { [CLIENT_HEADER]: 'web' },
+        )
 
         await webThreadMiddleware(c, vi.fn())
 
@@ -43,13 +46,17 @@ describe('webThreadMiddleware', () => {
         expect(c.get('requestContext').get(MASTRA_THREAD_ID_KEY)).toBe('ana@gmail.com:android')
     })
 
-    // The header only picks among the caller's own threads; it can't name another.
-    it('falls back to the web thread for an unknown client', async () => {
-        const c = contextWith({ [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com' }, { [CLIENT_HEADER]: 'telegram' })
+    // The header only picks among the app clients' threads; it can't name another channel.
+    it.each([['telegram'], ['ios'], [undefined]])('rejects client %s with 400', async (client) => {
+        const headers: Record<string, string> = client ? { [CLIENT_HEADER]: client } : {}
+        const c = contextWith({ [MASTRA_RESOURCE_ID_KEY]: 'ana@gmail.com' }, headers)
+        const next = vi.fn()
 
-        await webThreadMiddleware(c, vi.fn())
+        await webThreadMiddleware(c, next)
 
-        expect(c.get('requestContext').get(MASTRA_THREAD_ID_KEY)).toBe('ana@gmail.com:web')
+        expect(c.json).toHaveBeenCalledWith(expect.anything(), 400)
+        expect(c.get('requestContext').get(MASTRA_THREAD_ID_KEY)).toBeUndefined()
+        expect(next).not.toHaveBeenCalled()
     })
 
     it('rejects with 401 without a resourceId', async () => {
