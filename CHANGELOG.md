@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/alex-bluetrain/mostro-server/compare/v1.16.0...v1.16.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **cors:** always advertise X-Mostro-Client in allowed headers ([5be99bb](https://github.com/alex-bluetrain/mostro-server/commit/5be99bbf1ed0ffa7515f6b07d5fa627c3a707ef0))
+
 ## [1.16.0](https://github.com/alex-bluetrain/mostro-server/compare/v1.15.0...v1.16.0) (2026-09-28)
 
 
