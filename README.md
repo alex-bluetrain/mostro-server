@@ -1,8 +1,8 @@
-<p align="center">
-  <img src="docs/mostro-avatar.jpg" width="120" alt="Mostro logo" />
-</p>
-
 <h1 align="center">mostro-server</h1>
+
+<p align="center">
+  <img src="img/agents.png" alt="Mostro Banner" />
+</p>
 
 <p align="center">
   An AI assistant that handles a family's recurring care errands: diapers, medications and refunds.
